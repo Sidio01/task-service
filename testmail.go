@@ -1,5 +1,5 @@
 // Sending Email Using Smtp in Golang
-package main
+package mail
 
 import (
 	"fmt"
