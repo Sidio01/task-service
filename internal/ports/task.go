@@ -6,9 +6,10 @@ type Task interface {
 	// Info(ctx context.Context, login string) (*models.User, error)
 	// Validate(ctx context.Context, tokens models.TokenPair) (string, error)
 	// Login(ctx context.Context, user, password string) (models.TokenPair, error)
-	ListTasks() ([]*models.Task, error)
+	ListTasks(login string) ([]*models.Task, error) // TODO: передавать контекст
 	RunTask(createdTask *models.Task) error
-	DeleteTask(id string) error
-	ApproveTask(id, login string) error
-	DeclineTask(id, login string) error
+	DeleteTask(login, id string) error
+	ApproveTask(login, id, approvalLogin string) error
+	DeclineTask(login, id, approvalLogin string) error
+	Grpc
 }

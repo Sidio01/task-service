@@ -45,7 +45,7 @@ func (jdb *JsonDatabase) clearFile() error {
 	return nil
 }
 
-func (jdb *JsonDatabase) List() ([]*models.Task, error) {
+func (jdb *JsonDatabase) List(login string) ([]*models.Task, error) {
 	defer jdb.File.Seek(0, io.SeekStart)
 
 	ts := []*models.Task{}
@@ -54,7 +54,9 @@ func (jdb *JsonDatabase) List() ([]*models.Task, error) {
 	for fileScanner.Scan() {
 		t := models.Task{}
 		json.Unmarshal([]byte(fileScanner.Text()), &t)
-		ts = append(ts, &t)
+		if t.InitiatorLogin == login {
+			ts = append(ts, &t)
+		}
 	}
 	return ts, nil
 }
@@ -73,11 +75,11 @@ func (jdb *JsonDatabase) Run(t *models.Task) error {
 	return nil
 }
 
-func (jdb *JsonDatabase) Delete(id string) error {
+func (jdb *JsonDatabase) Delete(login, id string) error {
 	defer jdb.File.Seek(0, io.SeekStart)
 	var idFound bool
 
-	ts, err := jdb.List()
+	ts, err := jdb.List("")
 	if err != nil {
 		return err
 	}
@@ -116,12 +118,12 @@ func (jdb *JsonDatabase) Delete(id string) error {
 	return nil
 }
 
-func (jdb *JsonDatabase) Approve(id, login string) error {
+func (jdb *JsonDatabase) Approve(login, id, approvalLogin string) error {
 	defer jdb.File.Seek(0, io.SeekStart)
 	var idFound bool
 	var loginFound bool
 
-	ts, err := jdb.List()
+	ts, err := jdb.List("")
 	if err != nil {
 		return err
 	}
@@ -132,7 +134,7 @@ LOOP:
 		if t.UUID == id {
 			idFound = true
 			for _, a := range t.Approvals {
-				if a.ApprovalLogin == login {
+				if a.ApprovalLogin == approvalLogin {
 					loginFound = true
 					a.ChangeApprovedStatus(true)
 					break LOOP
@@ -167,13 +169,12 @@ LOOP:
 	return nil
 }
 
-func (jdb *JsonDatabase) Decline(id, login string) error {
-	defer jdb.File.Seek(0, io.SeekStart)
+func (jdb *JsonDatabase) Decline(login, id, approvalLogin string) error {
 	defer jdb.File.Seek(0, io.SeekStart)
 	var idFound bool
 	var loginFound bool
 
-	ts, err := jdb.List()
+	ts, err := jdb.List("")
 	if err != nil {
 		return err
 	}
@@ -182,7 +183,7 @@ LOOP:
 		if t.UUID == id {
 			idFound = true
 			for _, a := range t.Approvals {
-				if a.ApprovalLogin == login {
+				if a.ApprovalLogin == approvalLogin {
 					loginFound = true
 					a.ChangeApprovedStatus(false)
 					break LOOP

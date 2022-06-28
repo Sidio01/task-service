@@ -7,5 +7,6 @@ COPY . ./
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o application ./cmd/main.go
 
 FROM alpine:3.15.4
+ENV PG_URL="postgres://postgres:1111@localhost:5432/mtsteta"
 COPY --from=builder /app/application /app/application
 CMD ["/app/application"]

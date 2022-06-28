@@ -1,18 +1,26 @@
 package models
 
-type RunTask struct {
+import "database/sql"
+
+type RunTask struct { // TODO: добавить теги для базы данных
 	ApprovalLogins []string `json:"approvalLogins"`
 	InitiatorLogin string   `json:"initiatorLogin"`
 }
 
 type Approval struct {
-	Approved      bool   `json:"approved"`
-	Sent          bool   `json:"sent"`
-	N             int    `json:"n"`
-	ApprovalLogin string `json:"approvalLogin"`
+	// Approved      bool   `json:"approved"`
+	// Sent          bool   `json:"sent"`
+	Approved      sql.NullBool `json:"approved"`
+	Sent          sql.NullBool `json:"sent"`
+	N             int          `json:"n"`
+	ApprovalLogin string       `json:"approvalLogin"`
 }
 
-func (a *Approval) ChangeApprovedStatus(b bool) {
+// func (a *Approval) ChangeApprovedStatus(b bool) {
+// 	a.Approved = b
+// }
+
+func (a *Approval) ChangeApprovedStatus(b sql.NullBool) {
 	a.Approved = b
 }
 

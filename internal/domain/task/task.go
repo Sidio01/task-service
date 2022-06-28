@@ -6,17 +6,19 @@ import (
 )
 
 type Service struct {
-	db ports.TaskDB
+	db   ports.TaskDB
+	grpc ports.Grpc
 }
 
-func New(db ports.TaskDB) *Service {
+func New(db ports.TaskDB, grpc ports.Grpc) *Service {
 	return &Service{
-		db: db,
+		db:   db,
+		grpc: grpc,
 	}
 }
 
-func (s *Service) ListTasks() ([]*models.Task, error) {
-	t, err := s.db.List()
+func (s *Service) ListTasks(login string) ([]*models.Task, error) {
+	t, err := s.db.List(login)
 	if err != nil {
 		return nil, err
 	}
@@ -31,26 +33,34 @@ func (s *Service) RunTask(createdTask *models.Task) error {
 	return nil
 }
 
-func (s *Service) DeleteTask(id string) error {
-	err := s.db.Delete(id)
+func (s *Service) DeleteTask(login, id string) error {
+	err := s.db.Delete(login, id)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *Service) ApproveTask(id, login string) error {
-	err := s.db.Approve(id, login)
+func (s *Service) ApproveTask(login, id, approvalLogin string) error {
+	err := s.db.Approve(login, id, approvalLogin)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *Service) DeclineTask(id, login string) error {
-	err := s.db.Decline(id, login)
+func (s *Service) DeclineTask(login, id, approvalLogin string) error {
+	err := s.db.Decline(login, id, approvalLogin)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (s *Service) Validate(refreshCookie, accessCookie string) (bool, string, error) {
+	result, login, err := s.grpc.Validate(refreshCookie, accessCookie)
+	if err != nil {
+		return false, "", err
+	}
+	return result, login, nil
 }
