@@ -26,7 +26,7 @@ func New(l *zerolog.Logger, task ports.Task) (*Server, error) {
 		err error
 		s   Server
 	)
-	s.listener, err = net.Listen("tcp", ":3000")
+	s.listener, err = net.Listen("tcp", ":3000") // TODO: динамическое изменение порта
 	if err != nil {
 		log.Fatal("Failed listen port", err)
 	}
@@ -65,11 +65,6 @@ func (s *Server) routes() http.Handler {
 	// r.Use(middleware.RealIP)
 	// r.Use(middleware.Recoverer)
 	// r.Use(middleware.Timeout(60 * time.Second))
-	// r.Get("/healthz", s.healthzHandler)
-	r.Mount("/task/v1", s.authHandlers())
+	r.Mount("/task/v1", s.taskHandlers())
 	return r
 }
-
-// func (s *Server) healthzHandler(w http.ResponseWriter, r *http.Request) {
-// 	w.WriteHeader(http.StatusOK)
-// }

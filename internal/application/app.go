@@ -4,8 +4,9 @@ import (
 	"context"
 	"os"
 
+	"gitlab.com/g6834/team26/task/internal/adapters/grpc"
 	"gitlab.com/g6834/team26/task/internal/adapters/http"
-	"gitlab.com/g6834/team26/task/internal/adapters/json_db"
+	"gitlab.com/g6834/team26/task/internal/adapters/postgres"
 	"gitlab.com/g6834/team26/task/internal/domain/task"
 	"gitlab.com/g6834/team26/task/pkg/getenv"
 	"gitlab.com/g6834/team26/task/pkg/logger"
@@ -23,21 +24,28 @@ func Start(ctx context.Context) {
 	l = logger.New()
 
 	// TODO: заменить на postgresql
-	// pgconn := os.Getenv("PG_URL")
-	// db, err := postgres.New(ctx, pgconn)
-	// if err != nil {
-	// 	l.Error().Msgf("db init failed: %s", err)
-	// 	os.Exit(1)
-	// }
-
-	jsonconn := getenv.GetEnv("JSON_DB_FILE", "db.jsonl")
-	db, err := json_db.New(jsonconn)
+	pgconn := getenv.GetEnv("PG_URL", "postgres://postgres:1111@localhost:5432/mtsteta")
+	db, err := postgres.New(ctx, pgconn)
 	if err != nil {
 		l.Error().Msgf("db init failed: %s", err)
 		os.Exit(1)
 	}
 
-	taskS := task.New(db)
+	// jsonconn := getenv.GetEnv("JSON_DB_FILE", "db.jsonl")
+	// db, err := json_db.New(jsonconn)
+	// if err != nil {
+	// 	l.Error().Msgf("json db init failed: %s", err)
+	// 	os.Exit(1)
+	// }
+
+	grpcconn := getenv.GetEnv("GRPC_UDL", "localhost:4000")
+	grpc, err := grpc.New(grpcconn)
+	if err != nil {
+		l.Error().Msgf("grpc client init failed: %s", err)
+		os.Exit(1)
+	}
+
+	taskS := task.New(db, grpc)
 
 	s, err = http.New(l, taskS)
 	if err != nil {

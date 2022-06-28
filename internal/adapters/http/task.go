@@ -1,17 +1,19 @@
 package http
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"gitlab.com/g6834/team26/task/internal/domain/errors"
+	e "gitlab.com/g6834/team26/task/internal/domain/errors"
 	"gitlab.com/g6834/team26/task/internal/domain/models"
 	"gitlab.com/g6834/team26/task/pkg/uuid"
 )
 
-func (s *Server) authHandlers() http.Handler {
+func (s *Server) taskHandlers() http.Handler {
 	r := chi.NewRouter()
 	r.Delete("/tasks/{taskID}", s.DeleteTaskHandler)
 	r.Post("/tasks/{taskID}/approve/{approvalLogin}", s.ApproveTaskHandler)
@@ -21,12 +23,51 @@ func (s *Server) authHandlers() http.Handler {
 	return r
 }
 
+func (s *Server) getCookies(r *http.Request) (refreshToken, accessToken string) {
+	cookies := r.Cookies()
+	for _, cookie := range cookies {
+		switch cookie.Name {
+		case "refresh_token":
+			refreshToken = cookie.Value
+		case "access_token":
+			accessToken = cookie.Value
+		}
+	}
+	// log.Println("refreshToken -", refreshToken)
+	// log.Println("accessToken -", accessToken)
+	return
+}
+
+func (s *Server) getValidationResult(r *http.Request) (string, error) {
+	refreshToken, accessToken := s.getCookies(r)
+	authResponseResult, authResponseLogin, err := s.task.Validate(refreshToken, accessToken)
+	if err != nil {
+		return "", e.ErrMock
+		// return err
+	}
+	// log.Printf("grpc result: %v, grpc login: %v", authResponseResult, authResponseLogin)
+	if !authResponseResult {
+		return "", e.ErrAuthFailed
+	}
+	return authResponseLogin, nil
+}
+
 func (s *Server) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	// TODO: провалидировать куки
-	// TODO: если кука валидна удалить задачу
+
+	login, err := s.getValidationResult(r)
+	if errors.Is(err, e.ErrAuthFailed) {
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	} else if err != nil {
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	id := chi.URLParam(r, "taskID")
-	err := s.task.DeleteTask(id)
+	err = s.task.DeleteTask(login, id)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -37,11 +78,21 @@ func (s *Server) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) ApproveTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	// TODO: провалидировать куки
-	// TODO: если кука валидна выполнить задачу
+
+	login, err := s.getValidationResult(r)
+	if errors.Is(err, e.ErrAuthFailed) {
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	} else if err != nil {
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	id := chi.URLParam(r, "taskID")
-	login := chi.URLParam(r, "approvalLogin")
-	err := s.task.ApproveTask(id, login)
+	approvalLogin := chi.URLParam(r, "approvalLogin")
+	err = s.task.ApproveTask(login, id, approvalLogin)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -52,11 +103,21 @@ func (s *Server) ApproveTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) DeclineTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	// TODO: провалидировать куки
-	// TODO: если кука валидна выполнить задачу
+
+	login, err := s.getValidationResult(r)
+	if errors.Is(err, e.ErrAuthFailed) {
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	} else if err != nil {
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	id := chi.URLParam(r, "taskID")
-	login := chi.URLParam(r, "approvalLogin")
-	err := s.task.DeclineTask(id, login)
+	approvalLogin := chi.URLParam(r, "approvalLogin")
+	err = s.task.DeclineTask(login, id, approvalLogin)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -67,9 +128,19 @@ func (s *Server) DeclineTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) GetTasksListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	// TODO: провалидировать куки
-	// TODO: отдать только список задач пользователя
-	t, err := s.task.ListTasks()
+
+	login, err := s.getValidationResult(r)
+	if errors.Is(err, e.ErrAuthFailed) {
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	} else if err != nil {
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	t, err := s.task.ListTasks(login)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -92,20 +163,33 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) {
 	runnedTask := models.RunTask{}
 	err = json.Unmarshal(data, &runnedTask)
 	if err != nil {
-		http.Error(w, errors.ErrInvalidJsonBody.Error(), http.StatusInternalServerError)
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, e.ErrInvalidJsonBody.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// TODO: провалидировать куки
-	// TODO: сверить логин из боди с логином из куки
-	// runnedTask.InitiatorLogin == login
-	// w.WriteHeader(http.StatusForbidden)
-	// w.Write([]byte("{\"error\": \"invalid login\"}"))
-	// return
+	login, err := s.getValidationResult(r)
+	if errors.Is(err, e.ErrAuthFailed) {
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	} else if err != nil {
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if login != runnedTask.InitiatorLogin {
+		s.logger.Error().Msg(e.ErrTokenLoginNotEqualInitiatorLogin.Error())
+		http.Error(w, e.ErrTokenLoginNotEqualInitiatorLogin.Error(), http.StatusForbidden)
+		return
+	}
 
 	approvals := make([]*models.Approval, len(runnedTask.ApprovalLogins))
 	for idx, al := range runnedTask.ApprovalLogins {
 		approvals[idx] = &models.Approval{
+			Approved:      sql.NullBool{Valid: false, Bool: false},
+			Sent:          sql.NullBool{Valid: false, Bool: false},
 			N:             idx + 1,
 			ApprovalLogin: al,
 		}
