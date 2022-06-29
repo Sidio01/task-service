@@ -38,7 +38,7 @@ func Start(ctx context.Context) {
 	// 	os.Exit(1)
 	// }
 
-	grpcconn := getenv.GetEnv("GRPC_UDL", "localhost:4000")
+	grpcconn := getenv.GetEnv("GRPC_URL", "localhost:4000")
 	grpc, err := grpc.New(grpcconn)
 	if err != nil {
 		l.Error().Msgf("grpc client init failed: %s", err)

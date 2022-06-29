@@ -42,7 +42,7 @@ func (s *Server) getValidationResult(r *http.Request) (string, error) {
 	refreshToken, accessToken := s.getCookies(r)
 	authResponseResult, authResponseLogin, err := s.task.Validate(refreshToken, accessToken)
 	if err != nil {
-		return "", e.ErrMock
+		return "", err
 		// return err
 	}
 	// log.Printf("grpc result: %v, grpc login: %v", authResponseResult, authResponseLogin)

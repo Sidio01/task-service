@@ -20,8 +20,9 @@ type Approval struct {
 // 	a.Approved = b
 // }
 
-func (a *Approval) ChangeApprovedStatus(b sql.NullBool) {
-	a.Approved = b
+func (a *Approval) ChangeApprovedStatus(b bool) {
+	a.Approved.Valid = true
+	a.Approved.Bool = b
 }
 
 type Task struct {
