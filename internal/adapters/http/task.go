@@ -6,10 +6,12 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	e "gitlab.com/g6834/team26/task/internal/domain/errors"
 	"gitlab.com/g6834/team26/task/internal/domain/models"
+	"gitlab.com/g6834/team26/task/pkg/api"
 	"gitlab.com/g6834/team26/task/pkg/uuid"
 )
 
@@ -38,24 +40,55 @@ func (s *Server) getCookies(r *http.Request) (refreshToken, accessToken string) 
 	return
 }
 
-func (s *Server) getValidationResult(r *http.Request) (string, error) {
+func (s *Server) setCookie(w http.ResponseWriter, c models.Cookie) {
+	cookie := http.Cookie{
+		Name:     c.Name,
+		Value:    c.Value,
+		Path:     "/",
+		HttpOnly: true,
+		Expires:  c.Expiration,
+	}
+
+	http.SetCookie(w, &cookie)
+}
+
+func (s *Server) updateCookies(w http.ResponseWriter, g *api.AuthResponse) {
+	s.setCookie(w, models.Cookie{
+		// Name:       s.config.Server.AccessCookie,
+		Name:       "access_token",
+		Value:      g.AccessToken,
+		Expiration: time.Now().Add(time.Minute), // TODO: заменить на извлечение времени из поля AuthResponse
+	})
+	s.setCookie(w, models.Cookie{
+		// Name:       s.config.Server.RefreshCookie,
+		Name:       "refresh_token",
+		Value:      g.AccessToken,
+		Expiration: time.Now().Add(time.Hour), // TODO: заменить на извлечение времени из поля AuthResponse
+	})
+}
+
+func (s *Server) getValidationResult(w http.ResponseWriter, r *http.Request) (string, error) {
 	refreshToken, accessToken := s.getCookies(r)
-	authResponseResult, authResponseLogin, err := s.task.Validate(refreshToken, accessToken)
+	grpcResponse, err := s.task.Validate(refreshToken, accessToken)
 	if err != nil {
 		return "", err
 		// return err
 	}
 	// log.Printf("grpc result: %v, grpc login: %v", authResponseResult, authResponseLogin)
-	if !authResponseResult {
+	// log.Println(grpcResponse)
+	if !grpcResponse.Result {
 		return "", e.ErrAuthFailed
 	}
-	return authResponseLogin, nil
+
+	s.updateCookies(w, grpcResponse)
+
+	return grpcResponse.Login, nil
 }
 
 func (s *Server) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	login, err := s.getValidationResult(r)
+	login, err := s.getValidationResult(w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, err.Error(), http.StatusForbidden)
@@ -79,7 +112,7 @@ func (s *Server) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) ApproveTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	login, err := s.getValidationResult(r)
+	login, err := s.getValidationResult(w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, err.Error(), http.StatusForbidden)
@@ -104,7 +137,7 @@ func (s *Server) ApproveTaskHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) DeclineTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	login, err := s.getValidationResult(r)
+	login, err := s.getValidationResult(w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, err.Error(), http.StatusForbidden)
@@ -129,7 +162,7 @@ func (s *Server) DeclineTaskHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) GetTasksListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	login, err := s.getValidationResult(r)
+	login, err := s.getValidationResult(w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, err.Error(), http.StatusForbidden)
@@ -168,7 +201,7 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	login, err := s.getValidationResult(r)
+	login, err := s.getValidationResult(w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, err.Error(), http.StatusForbidden)
