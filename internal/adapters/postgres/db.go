@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	_ "github.com/lib/pq"
+	e "gitlab.com/g6834/team26/task/internal/domain/errors"
 	"gitlab.com/g6834/team26/task/internal/domain/models"
 )
 
@@ -49,10 +50,10 @@ func (pdb *PostgresDatabase) List(login string) ([]*models.Task, error) {
 		for approvalRows.Next() {
 			var approval models.Approval
 			err := approvalRows.Scan(&approval.ApprovalLogin, &approval.Approved, &approval.Sent, &approval.N)
-			approval.ApprovalLogin = strings.TrimSpace(approval.ApprovalLogin)
 			if err != nil {
 				return nil, err
 			}
+			approval.ApprovalLogin = strings.TrimSpace(approval.ApprovalLogin)
 			task.Approvals = append(task.Approvals, &approval)
 		}
 		result = append(result, &task)
@@ -93,28 +94,48 @@ func (pdb *PostgresDatabase) Run(t *models.Task) error {
 
 func (pdb *PostgresDatabase) Delete(login, id string) error { // TODO: логин можно не использовать
 	query := `DELETE FROM "tasks" WHERE "uuid" = $1 AND "login" = $2` // TODO: отправлять письма всем участникам об отмене операции
-	_, err := pdb.psqlClient.Exec(query, id, login)
+	result, err := pdb.psqlClient.Exec(query, id, login)              // TODO: проверка на наличие uuid в базе
 	if err != nil {
 		return err
 	}
-
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return e.ErrNotFound
+	}
 	return nil
 }
 
 func (pdb *PostgresDatabase) Approve(login, id, approvalLogin string) error { // TODO: логин не используется
 	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
-	_, err := pdb.psqlClient.Exec(query, true, id, approvalLogin)
+	result, err := pdb.psqlClient.Exec(query, true, id, approvalLogin) // TODO: проверка на наличие uuid в базе
+	if err != nil {                                                    // TODO: проверка на наличие approvalLogin в задаче
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
+	}
+	if rowsAffected == 0 {
+		return e.ErrNotFound
 	}
 	return nil
 }
 
 func (pdb *PostgresDatabase) Decline(login, id, approvalLogin string) error { // TODO: логин не используется
 	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
-	_, err := pdb.psqlClient.Exec(query, false, id, approvalLogin)
+	result, err := pdb.psqlClient.Exec(query, false, id, approvalLogin) // TODO: проверка на наличие uuid в базе
+	if err != nil {                                                     // TODO: проверка на наличие approvalLogin в задаче
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
+	}
+	if rowsAffected == 0 {
+		return e.ErrNotFound
 	}
 	return nil
 }

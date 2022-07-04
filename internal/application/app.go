@@ -23,7 +23,6 @@ var (
 func Start(ctx context.Context) {
 	l = logger.New()
 
-	// TODO: заменить на postgresql
 	pgconn := getenv.GetEnv("PG_URL", "postgres://postgres:1111@localhost:5432/mtsteta")
 	db, err := postgres.New(ctx, pgconn)
 	if err != nil {
