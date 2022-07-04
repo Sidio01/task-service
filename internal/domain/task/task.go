@@ -3,6 +3,7 @@ package task
 import (
 	"gitlab.com/g6834/team26/task/internal/domain/models"
 	"gitlab.com/g6834/team26/task/internal/ports"
+	"gitlab.com/g6834/team26/task/pkg/api"
 )
 
 type Service struct {
@@ -57,10 +58,10 @@ func (s *Service) DeclineTask(login, id, approvalLogin string) error {
 	return nil
 }
 
-func (s *Service) Validate(refreshCookie, accessCookie string) (bool, string, error) {
-	result, login, err := s.grpc.Validate(refreshCookie, accessCookie)
+func (s *Service) Validate(refreshCookie, accessCookie string) (*api.AuthResponse, error) {
+	grpcResponse, err := s.grpc.Validate(refreshCookie, accessCookie)
 	if err != nil {
-		return false, "", err
+		return nil, err
 	}
-	return result, login, nil
+	return grpcResponse, nil
 }

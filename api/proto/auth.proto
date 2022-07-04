@@ -10,11 +10,13 @@ service Auth {
 
 message AuthRequest {
   string service = 1;
-  string accessToken = 2;
-  string refreshToken = 3;
+  string access_token = 2;
+  string refresh_token = 3;
 }
 
 message AuthResponse {
   bool result = 1;
   string login = 2;
+  string access_token = 3;
+  string refresh_token = 4;
 }

@@ -22,14 +22,14 @@ func New(url string) (*Grpc, error) {
 	return &Grpc{GrpcClient: api.NewAuthClient(conn)}, nil
 }
 
-func (Grpc *Grpc) Validate(refreshCookie, accessCookie string) (bool, string, error) {
+func (Grpc *Grpc) Validate(refreshCookie, accessCookie string) (*api.AuthResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	authReq := &api.AuthRequest{Service: "task", AccessToken: accessCookie, RefreshToken: refreshCookie}
 	// log.Println(authReq)
 	grpcResponse, err := Grpc.GrpcClient.VerifyToken(ctx, authReq)
 	if err != nil {
-		return false, "", err
+		return nil, err
 	}
-	return grpcResponse.Result, grpcResponse.Login, nil
+	return grpcResponse, nil
 }
