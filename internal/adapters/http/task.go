@@ -338,6 +338,7 @@ func (s *Server) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// login := "test123"
 	id := chi.URLParam(r, "taskID")
 	err = s.task.DeleteTask(login, id)
 	if errors.Is(err, e.ErrNotFound) {

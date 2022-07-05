@@ -66,6 +66,6 @@ func Start(ctx context.Context) {
 }
 
 func Stop() {
-	_ = s.Stop(context.Background())
+	_ = s.Stop(context.Background()) // TODO: добавить отключение от базы
 	l.Info().Msg("app has stopped")
 }
