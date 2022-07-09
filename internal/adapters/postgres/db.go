@@ -100,7 +100,7 @@ func (pdb *PostgresDatabase) Run(t *models.Task) error {
 
 func (pdb *PostgresDatabase) Delete(login, id string) error { // TODO: логин можно не использовать
 	query := `DELETE FROM "tasks" WHERE "uuid" = $1 AND "login" = $2` // TODO: отправлять письма всем участникам об отмене операции
-	result, err := pdb.psqlClient.Exec(query, id, login)              // TODO: проверка на наличие uuid в базе
+	result, err := pdb.psqlClient.Exec(query, id, login)
 	if err != nil {
 		return err
 	}
@@ -116,8 +116,8 @@ func (pdb *PostgresDatabase) Delete(login, id string) error { // TODO: логи�
 
 func (pdb *PostgresDatabase) Approve(login, id, approvalLogin string) error { // TODO: логин не используется
 	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
-	result, err := pdb.psqlClient.Exec(query, true, id, approvalLogin) // TODO: проверка на наличие uuid в базе
-	if err != nil {                                                    // TODO: проверка на наличие approvalLogin в задаче
+	result, err := pdb.psqlClient.Exec(query, true, id, approvalLogin)
+	if err != nil {
 		return err
 	}
 	rowsAffected, err := result.RowsAffected()
@@ -132,8 +132,8 @@ func (pdb *PostgresDatabase) Approve(login, id, approvalLogin string) error { //
 
 func (pdb *PostgresDatabase) Decline(login, id, approvalLogin string) error { // TODO: логин не используется
 	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
-	result, err := pdb.psqlClient.Exec(query, false, id, approvalLogin) // TODO: проверка на наличие uuid в базе
-	if err != nil {                                                     // TODO: проверка на наличие approvalLogin в задаче
+	result, err := pdb.psqlClient.Exec(query, false, id, approvalLogin)
+	if err != nil {
 		return err
 	}
 	rowsAffected, err := result.RowsAffected()

@@ -4,7 +4,7 @@ type ErrApiBadRequest struct { // 400
 	S string `json:"error" example:"invalid json body"`
 }
 
-func (e ErrApiBadRequest) Error() string { // TODO: описать ошибку для 400 кода
+func (e ErrApiBadRequest) Error() string {
 	return e.S
 }
 

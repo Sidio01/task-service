@@ -2,7 +2,7 @@ package models
 
 import "database/sql"
 
-type RunTask struct { // TODO: добавить теги для базы данных
+type RunTask struct {
 	ApprovalLogins []string `json:"approvalLogins" swaggertype:"array,string" example:"test626,zxcvb"`
 	InitiatorLogin string   `json:"initiatorLogin" example:"test123"`
 }

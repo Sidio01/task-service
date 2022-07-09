@@ -122,8 +122,8 @@ func (s *Server) getValidationResult(w http.ResponseWriter, r *http.Request) (st
 // @Failure 403 {object} e.ErrApiAuthFailed
 // @Failure 500 {object} e.ErrApiInternalServerError
 // @Router /tasks/run [post]
-func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TODO: описать теги
-	w.Header().Set("Content-Type", "application/json") // TODO: передавать body в документацию
+func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
