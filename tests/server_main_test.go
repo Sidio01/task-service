@@ -19,7 +19,7 @@ import (
 	"gitlab.com/g6834/team26/task/internal/adapters/postgres"
 	"gitlab.com/g6834/team26/task/internal/domain/task"
 	"gitlab.com/g6834/team26/task/pkg/api"
-	"gitlab.com/g6834/team26/task/pkg/getenv"
+	"gitlab.com/g6834/team26/task/pkg/config"
 	"gitlab.com/g6834/team26/task/pkg/logger"
 	"gitlab.com/g6834/team26/task/pkg/mocks"
 )
@@ -45,6 +45,11 @@ func TestTestcontainers(t *testing.T) {
 func (s *TestcontainersSuite) SetupSuite() {
 	l := logger.New()
 	ctx := context.Background()
+
+	c, err := config.New()
+	if err != nil {
+		s.Suite.T().Errorf("Error parsing env: %s", err)
+	}
 
 	dbContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
@@ -78,7 +83,7 @@ func (s *TestcontainersSuite) SetupSuite() {
 	dbIp, err := dbContainer.Host(ctx)
 	s.Require().NoError(err)
 
-	pgconn := getenv.GetEnv("PG_URL", fmt.Sprintf("postgres://%s:%s@%s:%d/%s", dbUser, dbPass, dbIp, uint16(dbPort.Int()), dbName))
+	pgconn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", dbUser, dbPass, dbIp, uint16(dbPort.Int()), dbName)
 	db, err := postgres.New(ctx, pgconn)
 	if err != nil {
 		s.Suite.T().Errorf("db init failed: %s", err)
@@ -95,7 +100,7 @@ func (s *TestcontainersSuite) SetupSuite() {
 
 	taskS := task.New(db, g)
 
-	srv, err := h.New(l, taskS)
+	srv, err := h.New(l, taskS, c)
 	if err != nil {
 		s.Suite.T().Errorf("http server creating failed: %s", err)
 		s.Suite.T().FailNow()

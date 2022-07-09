@@ -8,7 +8,7 @@ import (
 	"gitlab.com/g6834/team26/task/internal/adapters/http"
 	"gitlab.com/g6834/team26/task/internal/adapters/postgres"
 	"gitlab.com/g6834/team26/task/internal/domain/task"
-	"gitlab.com/g6834/team26/task/pkg/getenv"
+	"gitlab.com/g6834/team26/task/pkg/config"
 	"gitlab.com/g6834/team26/task/pkg/logger"
 	"golang.org/x/sync/errgroup"
 
@@ -16,37 +16,41 @@ import (
 )
 
 var (
-	s *http.Server
-	l *zerolog.Logger
+	s        *http.Server
+	l        *zerolog.Logger
+	db       *postgres.PostgresDatabase
+	grpcAuth *grpc.GrpcAuth
 )
 
 func Start(ctx context.Context) {
 	l = logger.New()
 
-	pgconn := getenv.GetEnv("PG_URL", "postgres://postgres:1111@localhost:5432/mtsteta")
-	db, err := postgres.New(ctx, pgconn)
+	c, err := config.New()
+	if err != nil {
+		l.Error().Msgf("Error parsing env: %s", err)
+	}
+
+	db, err = postgres.New(ctx, c.Server.PgUrl)
 	if err != nil {
 		l.Error().Msgf("db init failed: %s", err)
 		os.Exit(1)
 	}
 
-	// jsonconn := getenv.GetEnv("JSON_DB_FILE", "db.jsonl")
-	// db, err := json_db.New(jsonconn)
+	// db, err := json_db.New(c.Server.JsonDbFile)
 	// if err != nil {
 	// 	l.Error().Msgf("json db init failed: %s", err)
 	// 	os.Exit(1)
 	// }
 
-	grpcconn := getenv.GetEnv("GRPC_URL", "localhost:4000")
-	grpc, err := grpc.New(grpcconn)
+	grpcAuth, err = grpc.New(c.Server.GRPCAuth)
 	if err != nil {
 		l.Error().Msgf("grpc client init failed: %s", err)
 		os.Exit(1)
 	}
 
-	taskS := task.New(db, grpc)
+	taskS := task.New(db, grpcAuth)
 
-	s, err = http.New(l, taskS)
+	s, err = http.New(l, taskS, c)
 	if err != nil {
 		l.Error().Msgf("http server creating failed: %s", err)
 		os.Exit(1)
@@ -66,6 +70,10 @@ func Start(ctx context.Context) {
 }
 
 func Stop() {
-	_ = s.Stop(context.Background()) // TODO: добавить отключение от базы
+	ctx := context.Background()
+
+	_ = s.Stop(ctx)
+	_ = db.Stop(ctx)
+	_ = grpcAuth.Stop(ctx)
 	l.Info().Msg("app has stopped")
 }

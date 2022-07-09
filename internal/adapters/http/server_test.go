@@ -18,6 +18,7 @@ import (
 	"gitlab.com/g6834/team26/task/internal/domain/models"
 	"gitlab.com/g6834/team26/task/internal/domain/task"
 	"gitlab.com/g6834/team26/task/pkg/api"
+	"gitlab.com/g6834/team26/task/pkg/config"
 	"gitlab.com/g6834/team26/task/pkg/logger"
 	"gitlab.com/g6834/team26/task/pkg/mocks"
 )
@@ -38,13 +39,17 @@ func (s *authTestSuite) SetupTest() {
 	// l := zerolog.Nop()
 	l := logger.New()
 
+	c, err := config.New()
+	if err != nil {
+		s.Suite.T().Errorf("Error parsing env: %s", err)
+	}
+
 	s.db = new(mocks.DbMock)
 	s.g = new(mocks.GrpcMock)
 
 	taskS := task.New(s.db, s.g)
 
-	var err error
-	s.srv, err = h.New(l, taskS)
+	s.srv, err = h.New(l, taskS, c)
 	if err != nil {
 		s.Suite.T().Errorf("db init failed: %s", err)
 		s.Suite.T().FailNow()

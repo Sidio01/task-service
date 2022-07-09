@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 
@@ -93,7 +92,7 @@ func (s *Server) updateCookies(w http.ResponseWriter, g *api.AuthResponse) {
 func (s *Server) getValidationResult(w http.ResponseWriter, r *http.Request) (string, error) {
 	refreshToken, accessToken := s.getCookies(r)
 	grpcResponse, err := s.task.Validate(refreshToken, accessToken)
-	log.Println("grpcResponse, err -", grpcResponse, err)
+	// log.Println("grpcResponse, err -", grpcResponse, err)
 	if err != nil {
 		return "", err
 		// return err
@@ -122,7 +121,7 @@ func (s *Server) getValidationResult(w http.ResponseWriter, r *http.Request) (st
 // @Failure 403 {object} e.ErrApiAuthFailed
 // @Failure 500 {object} e.ErrApiInternalServerError
 // @Router /tasks/run [post]
-func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TODO: добавить получение из боди названия и текста задачи
 	w.Header().Set("Content-Type", "application/json")
 
 	data, err := ioutil.ReadAll(r.Body)
@@ -221,6 +220,8 @@ func (s *Server) GetTasksListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(t)
 }
+
+// TODO: добавить эндпойнт на изменение задачи
 
 // Approve Task
 // @ID ApproveTask

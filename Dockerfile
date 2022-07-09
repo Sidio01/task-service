@@ -7,7 +7,13 @@ COPY . ./
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o application ./cmd/main.go
 
 FROM alpine:3.15.4
-ENV PG_URL="postgres://postgres:1111@mts_teta_projects-db-1:5432/mtsteta"
-ENV GRPC_URL="mts_teta_projects-auth-1:4000"
+
+ENV PORT=3000
+ENV GRPC_AUTH="mts_teta_projects-auth-1:4000"
+ENV GRPC_ANALYTIC="mts_teta_projects-analytic-1:4000"
+ENV PROFILING=false
+ENV PG_URL="postgres://team26:mNgd2ITbhVGd@91.185.93.23:5432/team26"
+ENV JSON_DB_FILE="db.jsonl"
+
 COPY --from=builder /app/application /app/application
 CMD ["/app/application"]

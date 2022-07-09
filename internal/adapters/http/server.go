@@ -7,12 +7,15 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"gitlab.com/g6834/team26/task/docs"
 	"gitlab.com/g6834/team26/task/internal/ports"
+	"gitlab.com/g6834/team26/task/pkg/config"
 	httpMiddleware "gitlab.com/g6834/team26/task/pkg/middleware"
 )
 
@@ -21,18 +24,21 @@ type Server struct {
 	server   *http.Server
 	logger   *zerolog.Logger
 	listener net.Listener
+	config   *config.Config
 	port     int
 }
 
-func New(l *zerolog.Logger, task ports.Task) (*Server, error) {
+func New(l *zerolog.Logger, task ports.Task, config *config.Config) (*Server, error) {
 	var (
 		err error
 		s   Server
 	)
-	s.listener, err = net.Listen("tcp", ":3000") // TODO: динамическое изменение порта
+	port := fmt.Sprintf(":%s", config.Server.Port)
+	s.listener, err = net.Listen("tcp", port)
 	if err != nil {
 		log.Fatal("Failed listen port", err)
 	}
+	s.config = config
 	s.task = task
 	s.logger = l
 	s.port = s.listener.Addr().(*net.TCPAddr).Port
@@ -64,12 +70,15 @@ func (s *Server) routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(httpMiddleware.LoggerMiddleware(s.logger))
 	r.Use(httpMiddleware.RecovererMiddleware(s.logger))
+	r.Use(middleware.Timeout(60 * time.Second))
+
+	r.Mount("/task/v1", s.taskHandlers())
+
+	r.Post("/toggle-prof", s.toggleDebugHandler)
+	r.Mount("/debug", s.debugHandlers())
+
 	r.Get("/swagger/*", httpSwagger.Handler(
 		httpSwagger.URL(fmt.Sprintf("http:%v%v/swagger/doc.json", docs.SwaggerInfo.Host, docs.SwaggerInfo.BasePath))))
-	// r.Use(middleware.RequestID)
-	// r.Use(middleware.RealIP)
-	// r.Use(middleware.Recoverer)
-	// r.Use(middleware.Timeout(60 * time.Second))
-	r.Mount("/task/v1", s.taskHandlers())
+
 	return r
 }
