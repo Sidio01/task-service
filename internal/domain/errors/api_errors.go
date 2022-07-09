@@ -1,7 +1,7 @@
 package errors
 
 type ErrApiBadRequest struct { // 400
-	S string `json:"error" example:"dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it."`
+	S string `json:"error" example:"invalid json body"`
 }
 
 func (e ErrApiBadRequest) Error() string { // TODO: описать ошибку для 400 кода

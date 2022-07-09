@@ -1,3 +1,6 @@
+//go:build all || unit
+// +build all unit
+
 package http_test
 
 import (
@@ -54,6 +57,7 @@ func (s *authTestSuite) TearDownSuite() {
 }
 
 func (s *authTestSuite) TestListHandlerSuccess() {
+
 	s.db.On("List", "test123").Return([]*models.Task{&models.Task{UUID: "66f5b904-3f54-4da4-ba74-6dfdf8d72efb",
 		Name:           "test",
 		Text:           "this is test task",

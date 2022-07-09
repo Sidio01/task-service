@@ -15,6 +15,8 @@ type PostgresDatabase struct {
 }
 
 func New(ctx context.Context, pgconn string) (*PostgresDatabase, error) {
+	// _, cancel := context.WithTimeout(ctx, 5 * time.Second)
+	// defer cancel()
 	db, err := sql.Open("postgres", pgconn+"?sslmode=disable")
 	if err != nil {
 		return nil, err
@@ -31,6 +33,8 @@ func (pdb *PostgresDatabase) List(login string) ([]*models.Task, error) {
 		return nil, err
 		// return nil, fmt.Errorf("no user with such login")
 	}
+	defer taskRows.Close()
+
 	for taskRows.Next() {
 		var task models.Task
 		err := taskRows.Scan(&task.UUID, &task.Name, &task.Text, &task.InitiatorLogin, &task.Status)
@@ -47,6 +51,8 @@ func (pdb *PostgresDatabase) List(login string) ([]*models.Task, error) {
 		if err != nil {
 			return nil, err
 		}
+		defer approvalRows.Close()
+
 		for approvalRows.Next() {
 			var approval models.Approval
 			err := approvalRows.Scan(&approval.ApprovalLogin, &approval.Approved, &approval.Sent, &approval.N)

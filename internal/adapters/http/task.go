@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 
@@ -92,6 +93,7 @@ func (s *Server) updateCookies(w http.ResponseWriter, g *api.AuthResponse) {
 func (s *Server) getValidationResult(w http.ResponseWriter, r *http.Request) (string, error) {
 	refreshToken, accessToken := s.getCookies(r)
 	grpcResponse, err := s.task.Validate(refreshToken, accessToken)
+	log.Println("grpcResponse, err -", grpcResponse, err)
 	if err != nil {
 		return "", err
 		// return err
@@ -126,7 +128,7 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TOD
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, e.ErrMock.Error(), http.StatusBadRequest) // TODO: проверить
+		http.Error(w, e.ErrMock.Error(), http.StatusInternalServerError) // TODO: проверить
 		return
 	}
 	defer r.Body.Close()
@@ -135,7 +137,7 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TOD
 	err = json.Unmarshal(data, &runnedTask)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, e.ErrInvalidJsonBody.Error(), http.StatusInternalServerError)
+		http.Error(w, e.ErrInvalidJsonBody.Error(), http.StatusBadRequest)
 		return
 	}
 

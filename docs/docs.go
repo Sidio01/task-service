@@ -334,7 +334,7 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "type": "string",
-                    "example": "dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it."
+                    "example": "invalid json body"
                 }
             }
         },
