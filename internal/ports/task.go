@@ -11,5 +11,5 @@ type Task interface {
 	DeleteTask(login, id string) error
 	ApproveTask(login, id, approvalLogin string) error
 	DeclineTask(login, id, approvalLogin string) error
-	Grpc
+	GrpcAuth
 }

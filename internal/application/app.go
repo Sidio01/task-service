@@ -23,7 +23,6 @@ var (
 func Start(ctx context.Context) {
 	l = logger.New()
 
-	// TODO: заменить на postgresql
 	pgconn := getenv.GetEnv("PG_URL", "postgres://postgres:1111@localhost:5432/mtsteta")
 	db, err := postgres.New(ctx, pgconn)
 	if err != nil {
@@ -67,6 +66,6 @@ func Start(ctx context.Context) {
 }
 
 func Stop() {
-	_ = s.Stop(context.Background())
+	_ = s.Stop(context.Background()) // TODO: добавить отключение от базы
 	l.Info().Msg("app has stopped")
 }

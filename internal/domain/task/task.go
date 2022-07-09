@@ -8,10 +8,10 @@ import (
 
 type Service struct {
 	db   ports.TaskDB
-	grpc ports.Grpc
+	grpc ports.GrpcAuth
 }
 
-func New(db ports.TaskDB, grpc ports.Grpc) *Service {
+func New(db ports.TaskDB, grpc ports.GrpcAuth) *Service {
 	return &Service{
 		db:   db,
 		grpc: grpc,

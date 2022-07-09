@@ -3,12 +3,15 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
+	httpSwagger "github.com/swaggo/http-swagger"
+	"gitlab.com/g6834/team26/task/docs"
 	"gitlab.com/g6834/team26/task/internal/ports"
 	httpMiddleware "gitlab.com/g6834/team26/task/pkg/middleware"
 )
@@ -61,6 +64,8 @@ func (s *Server) routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(httpMiddleware.LoggerMiddleware(s.logger))
 	r.Use(httpMiddleware.RecovererMiddleware(s.logger))
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL(fmt.Sprintf("http:%v%v/swagger/doc.json", docs.SwaggerInfo.Host, docs.SwaggerInfo.BasePath))))
 	// r.Use(middleware.RequestID)
 	// r.Use(middleware.RealIP)
 	// r.Use(middleware.Recoverer)

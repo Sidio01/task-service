@@ -9,20 +9,20 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type Grpc struct {
+type GrpcAuth struct {
 	GrpcClient api.AuthClient
 }
 
-func New(url string) (*Grpc, error) {
+func New(url string) (*GrpcAuth, error) {
 	conn, err := grpc.Dial(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
 	// defer conn.Close()
-	return &Grpc{GrpcClient: api.NewAuthClient(conn)}, nil
+	return &GrpcAuth{GrpcClient: api.NewAuthClient(conn)}, nil
 }
 
-func (Grpc *Grpc) Validate(refreshCookie, accessCookie string) (*api.AuthResponse, error) {
+func (Grpc *GrpcAuth) Validate(refreshCookie, accessCookie string) (*api.AuthResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	authReq := &api.AuthRequest{Service: "task", AccessToken: accessCookie, RefreshToken: refreshCookie}

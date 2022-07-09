@@ -2,9 +2,9 @@ package models
 
 import "database/sql"
 
-type RunTask struct { // TODO: добавить теги для базы данных
-	ApprovalLogins []string `json:"approvalLogins"`
-	InitiatorLogin string   `json:"initiatorLogin"`
+type RunTask struct {
+	ApprovalLogins []string `json:"approvalLogins" swaggertype:"array,string" example:"test626,zxcvb"`
+	InitiatorLogin string   `json:"initiatorLogin" example:"test123"`
 }
 
 type Approval struct {
@@ -12,8 +12,8 @@ type Approval struct {
 	// Sent          bool   `json:"sent"`
 	Approved      sql.NullBool `json:"approved"`
 	Sent          sql.NullBool `json:"sent"`
-	N             int          `json:"n"`
-	ApprovalLogin string       `json:"approvalLogin"`
+	N             int          `json:"n" example:"2"`
+	ApprovalLogin string       `json:"approvalLogin" example:"test626"`
 }
 
 // func (a *Approval) ChangeApprovedStatus(b bool) {
@@ -26,10 +26,10 @@ func (a *Approval) ChangeApprovedStatus(b bool) {
 }
 
 type Task struct {
-	UUID           string      `json:"uuid"`
-	Name           string      `json:"name"`
-	Text           string      `json:"text"`
-	InitiatorLogin string      `json:"initiatorLogin"`
-	Status         string      `json:"status"`
+	UUID           string      `json:"uuid" example:"eaca044f-5f02-4bc1-ba57-48845a473e42"`
+	Name           string      `json:"name" example:"test task"`
+	Text           string      `json:"text" example:"this is test task"`
+	InitiatorLogin string      `json:"initiatorLogin" example:"test123"`
+	Status         string      `json:"status" example:"created"`
 	Approvals      []*Approval `json:"approvals"`
 }

@@ -25,3 +25,13 @@ CREATE TABLE IF NOT EXISTS approvals
         ON DELETE CASCADE
         NOT VALID
 );
+
+INSERT INTO tasks (uuid, name, text, login) VALUES
+('437bcb56-0249-479a-b67b-7c4a56a956d8', 'test1', 'this is test task1', 'test123'),
+('2281a27e-0ab2-4589-8b06-c4fd5dc6cd45', 'test2', 'this is test task2', 'test123');
+
+INSERT INTO approvals (task_uuid, approval_login, n) VALUES
+('437bcb56-0249-479a-b67b-7c4a56a956d8', 'ivan', 1),
+('437bcb56-0249-479a-b67b-7c4a56a956d8', 'petr', 2),
+('2281a27e-0ab2-4589-8b06-c4fd5dc6cd45', 'test626', 1),
+('2281a27e-0ab2-4589-8b06-c4fd5dc6cd45', 'zxvdg', 2);
