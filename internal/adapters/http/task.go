@@ -77,15 +77,17 @@ func (s *Server) setCookie(w http.ResponseWriter, c models.Cookie) {
 func (s *Server) updateCookies(w http.ResponseWriter, g *api.AuthResponse) {
 	s.setCookie(w, models.Cookie{
 		// Name:       s.config.Server.AccessCookie,
-		Name:       "access_token",
-		Value:      g.AccessToken,
-		Expiration: time.Now().Add(time.Minute), // TODO: заменить на извлечение времени из поля AuthResponse
+		Name:  "access_token",
+		Value: g.AccessToken.GetValue(),
+		// Expiration: time.Now().Add(time.Minute),
+		Expiration: time.Unix(g.AccessToken.GetExpires(), 0),
 	})
 	s.setCookie(w, models.Cookie{
 		// Name:       s.config.Server.RefreshCookie,
-		Name:       "refresh_token",
-		Value:      g.AccessToken,
-		Expiration: time.Now().Add(time.Hour), // TODO: заменить на извлечение времени из поля AuthResponse
+		Name:  "refresh_token",
+		Value: g.RefreshToken.GetValue(),
+		// Expiration: time.Now().Add(time.Hour),
+		Expiration: time.Unix(g.RefreshToken.GetExpires(), 0),
 	})
 }
 
@@ -103,7 +105,9 @@ func (s *Server) getValidationResult(w http.ResponseWriter, r *http.Request) (st
 		return "", e.ErrAuthFailed
 	}
 
-	s.updateCookies(w, grpcResponse)
+	if grpcResponse.RefreshToken != nil && grpcResponse.AccessToken != nil {
+		s.updateCookies(w, grpcResponse)
+	}
 
 	return grpcResponse.Login, nil
 }
@@ -127,7 +131,7 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TOD
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, e.ErrMock.Error(), http.StatusInternalServerError) // TODO: проверить
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusInternalServerError) // TODO: проверить
 		return
 	}
 	defer r.Body.Close()
@@ -143,11 +147,11 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TOD
 	login, err := s.getValidationResult(w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusForbidden)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusForbidden)
 		return
 	} else if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -177,7 +181,7 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TOD
 	err = s.task.RunTask(&createdTask)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -204,18 +208,18 @@ func (s *Server) GetTasksListHandler(w http.ResponseWriter, r *http.Request) {
 	login, err := s.getValidationResult(w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusForbidden)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusForbidden)
 		return
 	} else if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	t, err := s.task.ListTasks(login)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusBadRequest)
 		return
 	}
 	json.NewEncoder(w).Encode(t)
@@ -244,11 +248,11 @@ func (s *Server) ApproveTaskHandler(w http.ResponseWriter, r *http.Request) {
 	login, err := s.getValidationResult(w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusForbidden)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusForbidden)
 		return
 	} else if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -257,11 +261,11 @@ func (s *Server) ApproveTaskHandler(w http.ResponseWriter, r *http.Request) {
 	err = s.task.ApproveTask(login, id, approvalLogin)
 	if errors.Is(err, e.ErrNotFound) {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusNotFound)
 		return
 	} else if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusBadRequest)
 		return
 	}
 	// w.Write([]byte("{\"status\": \"approved\"}"))
@@ -289,11 +293,11 @@ func (s *Server) DeclineTaskHandler(w http.ResponseWriter, r *http.Request) {
 	login, err := s.getValidationResult(w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusForbidden)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusForbidden)
 		return
 	} else if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -302,11 +306,11 @@ func (s *Server) DeclineTaskHandler(w http.ResponseWriter, r *http.Request) {
 	err = s.task.DeclineTask(login, id, approvalLogin)
 	if errors.Is(err, e.ErrNotFound) {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusNotFound)
 		return
 	} else if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusBadRequest)
 		return
 	}
 	// w.Write([]byte("{\"status\": \"declined\"}"))
@@ -333,11 +337,11 @@ func (s *Server) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	login, err := s.getValidationResult(w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusForbidden)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusForbidden)
 		return
 	} else if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -346,11 +350,11 @@ func (s *Server) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	err = s.task.DeleteTask(login, id)
 	if errors.Is(err, e.ErrNotFound) {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusNotFound)
 		return
 	} else if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusBadRequest)
 		return
 	}
 	// w.Write([]byte("{\"status\": \"deleted\"}"))

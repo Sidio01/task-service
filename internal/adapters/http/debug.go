@@ -9,10 +9,10 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func (s *Server) debugHandlers() http.Handler { // TODO: проверить включение/выключение профилировщика
+func (s *Server) debugHandlers() http.Handler {
 	h := chi.NewMux()
 	h.Route("/", func(r chi.Router) {
-		//h.Use(m.CheckProfiling())
+		h.Use(s.CheckProfiling())
 
 		h.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, r.RequestURI+"/pprof/", http.StatusMovedPermanently)

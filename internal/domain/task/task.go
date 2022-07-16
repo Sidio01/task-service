@@ -7,14 +7,14 @@ import (
 )
 
 type Service struct {
-	db   ports.TaskDB
-	grpc ports.GrpcAuth
+	db       ports.TaskDB
+	grpcAuth ports.GrpcAuth
 }
 
-func New(db ports.TaskDB, grpc ports.GrpcAuth) *Service {
+func New(db ports.TaskDB, grpcAuth ports.GrpcAuth) *Service {
 	return &Service{
-		db:   db,
-		grpc: grpc,
+		db:       db,
+		grpcAuth: grpcAuth,
 	}
 }
 
@@ -59,7 +59,7 @@ func (s *Service) DeclineTask(login, id, approvalLogin string) error {
 }
 
 func (s *Service) Validate(refreshCookie, accessCookie string) (*api.AuthResponse, error) {
-	grpcResponse, err := s.grpc.Validate(refreshCookie, accessCookie)
+	grpcResponse, err := s.grpcAuth.Validate(refreshCookie, accessCookie)
 	if err != nil {
 		return nil, err
 	}
