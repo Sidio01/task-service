@@ -1,11 +1,15 @@
 package ports
 
-import "gitlab.com/g6834/team26/task/internal/domain/models"
+import (
+	"context"
+
+	"gitlab.com/g6834/team26/task/internal/domain/models"
+)
 
 type TaskDB interface {
-	List(login string) ([]*models.Task, error)
-	Run(t *models.Task) error
-	Delete(login, id string) error
-	Approve(login, id, approvalLogin string) error
-	Decline(login, id, approvalLogin string) error
+	List(ctx context.Context, login string) ([]*models.Task, error)
+	Run(ctx context.Context, t *models.Task) error
+	Delete(ctx context.Context, login, id string) error
+	Approve(ctx context.Context, login, id, approvalLogin string) error
+	Decline(ctx context.Context, login, id, approvalLogin string) error
 }

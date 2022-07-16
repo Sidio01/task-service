@@ -26,8 +26,8 @@ func New(url string) (*GrpcAuth, error) {
 	}, nil
 }
 
-func (GrpcAuth *GrpcAuth) Validate(refreshCookie, accessCookie string) (*api.AuthResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func (GrpcAuth *GrpcAuth) Validate(ctx context.Context, refreshCookie, accessCookie string) (*api.AuthResponse, error) {
+	_, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	authReq := &api.AuthRequest{Service: "task", AccessToken: accessCookie, RefreshToken: refreshCookie}
 	// log.Println(authReq)

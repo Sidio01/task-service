@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -91,9 +92,9 @@ func (s *Server) updateCookies(w http.ResponseWriter, g *api.AuthResponse) {
 	})
 }
 
-func (s *Server) getValidationResult(w http.ResponseWriter, r *http.Request) (string, error) {
+func (s *Server) getValidationResult(ctx context.Context, w http.ResponseWriter, r *http.Request) (string, error) {
 	refreshToken, accessToken := s.getCookies(r)
-	grpcResponse, err := s.task.Validate(refreshToken, accessToken)
+	grpcResponse, err := s.task.Validate(ctx, refreshToken, accessToken)
 	// log.Println("grpcResponse, err -", grpcResponse, err)
 	if err != nil {
 		return "", err
@@ -127,6 +128,7 @@ func (s *Server) getValidationResult(w http.ResponseWriter, r *http.Request) (st
 // @Router /tasks/run [post]
 func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TODO: добавить получение из боди названия и текста задачи
 	w.Header().Set("Content-Type", "application/json")
+	ctx := context.Background()
 
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -144,7 +146,7 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TOD
 		return
 	}
 
-	login, err := s.getValidationResult(w, r)
+	login, err := s.getValidationResult(ctx, w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusForbidden)
@@ -178,7 +180,7 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TOD
 		Approvals:      approvals,
 	}
 
-	err = s.task.RunTask(&createdTask)
+	err = s.task.RunTask(ctx, &createdTask)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusBadRequest)
@@ -204,8 +206,9 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TOD
 // @Router /tasks/ [get]
 func (s *Server) GetTasksListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	ctx := context.Background()
 
-	login, err := s.getValidationResult(w, r)
+	login, err := s.getValidationResult(ctx, w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusForbidden)
@@ -216,7 +219,7 @@ func (s *Server) GetTasksListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, err := s.task.ListTasks(login)
+	t, err := s.task.ListTasks(ctx, login)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusBadRequest)
@@ -244,8 +247,9 @@ func (s *Server) GetTasksListHandler(w http.ResponseWriter, r *http.Request) {
 // @Router /tasks/{taskID}/approve/{approvalLogin} [post]
 func (s *Server) ApproveTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	ctx := context.Background()
 
-	login, err := s.getValidationResult(w, r)
+	login, err := s.getValidationResult(ctx, w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusForbidden)
@@ -258,7 +262,7 @@ func (s *Server) ApproveTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	id := chi.URLParam(r, "taskID")
 	approvalLogin := chi.URLParam(r, "approvalLogin")
-	err = s.task.ApproveTask(login, id, approvalLogin)
+	err = s.task.ApproveTask(ctx, login, id, approvalLogin)
 	if errors.Is(err, e.ErrNotFound) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusNotFound)
@@ -289,8 +293,9 @@ func (s *Server) ApproveTaskHandler(w http.ResponseWriter, r *http.Request) {
 // @Router /tasks/{taskID}/decline/{approvalLogin} [post]
 func (s *Server) DeclineTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	ctx := context.Background()
 
-	login, err := s.getValidationResult(w, r)
+	login, err := s.getValidationResult(ctx, w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusForbidden)
@@ -303,7 +308,7 @@ func (s *Server) DeclineTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	id := chi.URLParam(r, "taskID")
 	approvalLogin := chi.URLParam(r, "approvalLogin")
-	err = s.task.DeclineTask(login, id, approvalLogin)
+	err = s.task.DeclineTask(ctx, login, id, approvalLogin)
 	if errors.Is(err, e.ErrNotFound) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusNotFound)
@@ -333,8 +338,9 @@ func (s *Server) DeclineTaskHandler(w http.ResponseWriter, r *http.Request) {
 // @Router /tasks/{taskID} [delete]
 func (s *Server) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	ctx := context.Background()
 
-	login, err := s.getValidationResult(w, r)
+	login, err := s.getValidationResult(ctx, w, r)
 	if errors.Is(err, e.ErrAuthFailed) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusForbidden)
@@ -347,7 +353,7 @@ func (s *Server) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	// login := "test123"
 	id := chi.URLParam(r, "taskID")
-	err = s.task.DeleteTask(login, id)
+	err = s.task.DeleteTask(ctx, login, id)
 	if errors.Is(err, e.ErrNotFound) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusNotFound)

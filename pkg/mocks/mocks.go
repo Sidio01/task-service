@@ -1,6 +1,8 @@
 package mocks
 
 import (
+	"context"
+
 	"github.com/stretchr/testify/mock"
 	"gitlab.com/g6834/team26/task/internal/domain/models"
 	"gitlab.com/g6834/team26/task/pkg/api"
@@ -10,36 +12,50 @@ type DbMock struct {
 	mock.Mock
 }
 
-func (d *DbMock) List(login string) ([]*models.Task, error) {
-	args := d.Called(login)
+func (d *DbMock) List(ctx context.Context, login string) ([]*models.Task, error) {
+	args := d.Called(ctx, login)
 	return args.Get(0).([]*models.Task), args.Error(1)
 }
 
-func (d *DbMock) Run(t *models.Task) error {
-	args := d.Called(t)
+func (d *DbMock) Run(ctx context.Context, t *models.Task) error {
+	args := d.Called(ctx, t)
 	return args.Error(0)
 }
 
-func (d *DbMock) Delete(login, id string) error {
-	args := d.Called(login, id)
+func (d *DbMock) Delete(ctx context.Context, login, id string) error {
+	args := d.Called(ctx, login, id)
 	return args.Error(0)
 }
 
-func (d *DbMock) Approve(login, id, approvalLogin string) error {
-	args := d.Called(login, id, approvalLogin)
+func (d *DbMock) Approve(ctx context.Context, login, id, approvalLogin string) error {
+	args := d.Called(ctx, login, id, approvalLogin)
 	return args.Error(0)
 }
 
-func (d *DbMock) Decline(login, id, approvalLogin string) error {
-	args := d.Called(login, id, approvalLogin)
+func (d *DbMock) Decline(ctx context.Context, login, id, approvalLogin string) error {
+	args := d.Called(ctx, login, id, approvalLogin)
 	return args.Error(0)
 }
 
-type GrpcMock struct {
+type GrpcAuthMock struct {
 	mock.Mock
 }
 
-func (g *GrpcMock) Validate(refreshCookie, accessCookie string) (*api.AuthResponse, error) {
-	args := g.Called(refreshCookie, accessCookie)
+func (g *GrpcAuthMock) Validate(ctx context.Context, refreshCookie, accessCookie string) (*api.AuthResponse, error) {
+	args := g.Called(ctx, refreshCookie, accessCookie)
 	return args.Get(0).(*api.AuthResponse), args.Error(1)
+}
+
+type GrpcAnalyticMock struct {
+	mock.Mock
+}
+
+func (g *GrpcAnalyticMock) AddTask(ctx context.Context, t *models.Task) error {
+	args := g.Called(ctx, t)
+	return args.Error(0)
+}
+
+func (g *GrpcAnalyticMock) ActionTask(ctx context.Context, u, e, a string, v bool) error {
+	args := g.Called(ctx, u, e, a, v)
+	return args.Error(0)
 }

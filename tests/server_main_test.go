@@ -27,9 +27,10 @@ import (
 type TestcontainersSuite struct {
 	suite.Suite
 
-	srv         *h.Server
-	pgContainer testcontainers.Container
-	gMock       *mocks.GrpcMock // TODO: заменить на законченную версию сервиса auth
+	srv           *h.Server
+	pgContainer   testcontainers.Container
+	gAuthMock     *mocks.GrpcAuthMock // TODO: заменить на законченную версию сервиса auth
+	gAnalyticMock *mocks.GrpcAnalyticMock
 }
 
 const (
@@ -96,9 +97,10 @@ func (s *TestcontainersSuite) SetupSuite() {
 	// 	s.Suite.T().Errorf("grpc client init failed: %s", err)
 	// 	s.Suite.T().FailNow()
 	// }
-	g := new(mocks.GrpcMock)
+	gAuth := new(mocks.GrpcAuthMock)
+	gAnalytic := new(mocks.GrpcAnalyticMock)
 
-	taskS := task.New(db, g)
+	taskS := task.New(db, gAuth, gAnalytic)
 
 	srv, err := h.New(l, taskS, c)
 	if err != nil {
@@ -108,7 +110,8 @@ func (s *TestcontainersSuite) SetupSuite() {
 
 	s.srv = srv
 	s.pgContainer = dbContainer
-	s.gMock = g
+	s.gAuthMock = gAuth
+	s.gAnalyticMock = gAnalytic
 
 	go s.srv.Start()
 
@@ -122,7 +125,8 @@ func (s *TestcontainersSuite) TearDownSuite() {
 }
 
 func (s *TestcontainersSuite) TestDBSelect() {
-	s.gMock.On("Validate", mock.Anything, mock.Anything).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: "AccessToken", RefreshToken: "RefreshToken"}, nil)
+	ctx := context.Background()
+	s.gAuthMock.On("Validate", ctx, mock.Anything, mock.Anything).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
 	bodyReq := strings.NewReader("")
 
 	req, err := http.NewRequest("GET", "http://localhost:3000/task/v1/tasks/", bodyReq)

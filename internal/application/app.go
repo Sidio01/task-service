@@ -16,10 +16,11 @@ import (
 )
 
 var (
-	s        *http.Server
-	l        *zerolog.Logger
-	db       *postgres.PostgresDatabase
-	grpcAuth *grpc.GrpcAuth
+	s            *http.Server
+	l            *zerolog.Logger
+	db           *postgres.PostgresDatabase
+	grpcAuth     *grpc.GrpcAuth
+	grpcAnalytic *grpc.GrpcAnalytic
 )
 
 func Start(ctx context.Context) {
@@ -48,7 +49,7 @@ func Start(ctx context.Context) {
 		os.Exit(1)
 	}
 
-	grpcAnalytic, err := grpc.NewAnalytic(c.Server.GRPCAnalytic)
+	grpcAnalytic, err = grpc.NewAnalytic(c.Server.GRPCAnalytic)
 	if err != nil {
 		l.Error().Msgf("grpc analytic client init failed: %s", err)
 		os.Exit(1)
@@ -81,5 +82,6 @@ func Stop() {
 	_ = s.Stop(ctx)
 	_ = db.Stop(ctx)
 	_ = grpcAuth.Stop(ctx)
+	_ = grpcAnalytic.StopAnalytic(ctx)
 	l.Info().Msg("app has stopped")
 }

@@ -28,8 +28,8 @@ func NewAnalytic(url string) (*GrpcAnalytic, error) {
 	}, nil
 }
 
-func (GrpcAnalytic *GrpcAnalytic) AddTask(t *models.Task) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func (GrpcAnalytic *GrpcAnalytic) AddTask(ctx context.Context, t *models.Task) error {
+	_, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	emails := make([]string, len(t.Approvals))
@@ -51,8 +51,8 @@ func (GrpcAnalytic *GrpcAnalytic) AddTask(t *models.Task) error {
 	return nil
 }
 
-func (GrpcAnalytic *GrpcAnalytic) ActionTask(u, e, a string, v bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func (GrpcAnalytic *GrpcAnalytic) ActionTask(ctx context.Context, u, e, a string, v bool) error {
+	_, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	actionTaskReq := &api.ActionTaskRequest{UUID: u,
