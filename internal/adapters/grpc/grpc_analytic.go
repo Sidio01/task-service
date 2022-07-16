@@ -28,7 +28,7 @@ func NewAnalytic(url string) (*GrpcAnalytic, error) {
 	}, nil
 }
 
-func (GrpcAnalytic *GrpcAnalytic) AddTask(t models.Task) error {
+func (GrpcAnalytic *GrpcAnalytic) AddTask(t *models.Task) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
