@@ -108,7 +108,7 @@ func (pdb *PostgresDatabase) Run(t *models.Task) error {
 }
 
 func (pdb *PostgresDatabase) Delete(login, id string) error {
-	query := `DELETE FROM "tasks" WHERE "uuid" = $1 AND "login" = $2` // TODO: отправлять письма всем участникам об отмене операции
+	query := `DELETE FROM "tasks" WHERE "uuid" = $1 AND "login" = $2`
 	result, err := pdb.psqlClient.Exec(query, id, login)
 	if err != nil {
 		return err

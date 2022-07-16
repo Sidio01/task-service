@@ -44,11 +44,17 @@ func Start(ctx context.Context) {
 
 	grpcAuth, err = grpc.New(c.Server.GRPCAuth)
 	if err != nil {
-		l.Error().Msgf("grpc client init failed: %s", err)
+		l.Error().Msgf("grpc auth client init failed: %s", err)
 		os.Exit(1)
 	}
 
-	taskS := task.New(db, grpcAuth)
+	grpcAnalytic, err := grpc.NewAnalytic(c.Server.GRPCAnalytic)
+	if err != nil {
+		l.Error().Msgf("grpc analytic client init failed: %s", err)
+		os.Exit(1)
+	}
+
+	taskS := task.New(db, grpcAuth, grpcAnalytic)
 
 	s, err = http.New(l, taskS, c)
 	if err != nil {

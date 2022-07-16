@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "./pkg/api";
+
+service Analytic {
+  rpc AddTask(AddTaskRequest) returns (AnalyticResponse) {};
+  rpc ActionTask(ActionTaskRequest) returns (AnalyticResponse) {};
+}
+
+message AddTaskRequest {
+  string UUID = 1;
+  string login = 2;
+  int64 timestamp = 3;
+  repeated string emails = 4;
+  string UUIDMessage = 5;
+}
+
+message ActionTaskRequest {
+  string UUID = 1;
+  int64 timestamp = 2;
+  string email = 3;
+  string action = 4;
+  bool value = 5;
+  string UUIDMessage = 6;
+}
+
+message AnalyticResponse {
+
+}

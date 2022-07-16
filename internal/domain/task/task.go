@@ -7,14 +7,16 @@ import (
 )
 
 type Service struct {
-	db       ports.TaskDB
-	grpcAuth ports.GrpcAuth
+	db             ports.TaskDB
+	grpcAuth       ports.GrpcAuth
+	analyticSender ports.TaskAnalyticSender
 }
 
-func New(db ports.TaskDB, grpcAuth ports.GrpcAuth) *Service {
+func New(db ports.TaskDB, grpcAuth ports.GrpcAuth, analyticSender ports.TaskAnalyticSender) *Service {
 	return &Service{
-		db:       db,
-		grpcAuth: grpcAuth,
+		db:             db,
+		grpcAuth:       grpcAuth,
+		analyticSender: analyticSender,
 	}
 }
 
@@ -26,35 +28,59 @@ func (s *Service) ListTasks(login string) ([]*models.Task, error) {
 	return t, nil
 }
 
-func (s *Service) RunTask(createdTask *models.Task) error {
+func (s *Service) RunTask(createdTask *models.Task) error { // TODO: отправлять письмо первому согласующему
 	err := s.db.Run(createdTask)
 	if err != nil {
 		return err
 	}
+
+	err = s.analyticSender.AddTask(createdTask)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (s *Service) DeleteTask(login, id string) error {
+func (s *Service) DeleteTask(login, id string) error { // TODO: отправлять письма всем участникам об отмене операции
 	err := s.db.Delete(login, id)
 	if err != nil {
 		return err
 	}
+
+	err = s.analyticSender.ActionTask(id, "", "delete", true)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (s *Service) ApproveTask(login, id, approvalLogin string) error {
+func (s *Service) ApproveTask(login, id, approvalLogin string) error { // TODO: отправлять письмо следующему согласующему
 	err := s.db.Approve(login, id, approvalLogin)
 	if err != nil {
 		return err
 	}
+
+	err = s.analyticSender.ActionTask(id, approvalLogin, "approve", true)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (s *Service) DeclineTask(login, id, approvalLogin string) error {
+func (s *Service) DeclineTask(login, id, approvalLogin string) error { // TODO: отправлять письма всем участникам об остановке согласования операции в связи с отклонением одним из участников
 	err := s.db.Decline(login, id, approvalLogin)
 	if err != nil {
 		return err
 	}
+
+	err = s.analyticSender.ActionTask(id, approvalLogin, "approve", false)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
