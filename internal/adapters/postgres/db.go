@@ -129,7 +129,7 @@ func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error
 	return nil
 }
 
-func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLogin string) error {
+func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLogin string) error { // TODO: проверять на повторные вызовы и на статус задачи
 	_, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
@@ -147,7 +147,7 @@ func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLog
 	return nil
 }
 
-func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLogin string) error {
+func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLogin string) error { // TODO: проверять на повторные вызовы и на статус задачи
 	_, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`

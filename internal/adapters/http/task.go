@@ -133,7 +133,7 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TOD
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
-		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusInternalServerError) // TODO: проверить
+		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer r.Body.Close()
@@ -186,8 +186,6 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) { // TOD
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusBadRequest)
 		return
 	}
-
-	// TODO: отправляем письма по очереди approvalLogins
 
 	json.NewEncoder(w).Encode(createdTask)
 }
