@@ -7,18 +7,18 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"gitlab.com/g6834/team26/task/internal/adapters/grpc"
 	h "gitlab.com/g6834/team26/task/internal/adapters/http"
 	"gitlab.com/g6834/team26/task/internal/adapters/postgres"
 	"gitlab.com/g6834/team26/task/internal/domain/task"
-	"gitlab.com/g6834/team26/task/pkg/api"
 	"gitlab.com/g6834/team26/task/pkg/config"
 	"gitlab.com/g6834/team26/task/pkg/logger"
 	"gitlab.com/g6834/team26/task/pkg/mocks"
@@ -29,8 +29,10 @@ type TestcontainersSuite struct {
 
 	srv           *h.Server
 	pgContainer   testcontainers.Container
-	gAuthMock     *mocks.GrpcAuthMock // TODO: заменить на законченную версию сервиса auth
+	authContainer testcontainers.Container
+	// gAuthMock     *mocks.GrpcAuthMock
 	gAnalyticMock *mocks.GrpcAnalyticMock
+	authPort      uint16
 }
 
 const (
@@ -52,6 +54,7 @@ func (s *TestcontainersSuite) SetupSuite() {
 		s.Suite.T().Errorf("Error parsing env: %s", err)
 	}
 
+	dbInitPath, _ := filepath.Abs("../db.sql")
 	dbContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image:        "postgres:14",
@@ -67,7 +70,7 @@ func (s *TestcontainersSuite) SetupSuite() {
 			Mounts: testcontainers.ContainerMounts{
 				testcontainers.ContainerMount{
 					Source: testcontainers.GenericBindMountSource{
-						HostPath: "D:/Git/job_projects/mts_teta_projects/task/db.sql",
+						HostPath: dbInitPath,
 					},
 					Target:   "/docker-entrypoint-initdb.d/db.sql",
 					ReadOnly: false},
@@ -84,23 +87,52 @@ func (s *TestcontainersSuite) SetupSuite() {
 	dbIp, err := dbContainer.Host(ctx)
 	s.Require().NoError(err)
 
-	pgconn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", dbUser, dbPass, dbIp, uint16(dbPort.Int()), dbName)
-	db, err := postgres.New(ctx, pgconn)
+	pgConn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", dbUser, dbPass, dbIp, uint16(dbPort.Int()), dbName)
+	db, err := postgres.New(ctx, pgConn)
 	if err != nil {
 		s.Suite.T().Errorf("db init failed: %s", err)
 		s.Suite.T().FailNow()
 	}
 
-	// grpcconn := getenv.GetEnv("GRPC_URL", "localhost:4000")
-	// grpc, err := grpc.New(grpcconn)
-	// if err != nil {
-	// 	s.Suite.T().Errorf("grpc client init failed: %s", err)
-	// 	s.Suite.T().FailNow()
-	// }
-	gAuth := new(mocks.GrpcAuthMock)
+	contextAuthPath, _ := filepath.Abs("../../auth") // предварительно необходимо склонировать репозиторий auth
+	authContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			FromDockerfile: testcontainers.FromDockerfile{
+				Context: contextAuthPath,
+			},
+			ExposedPorts: []string{"2000", "4000"},
+			Env: map[string]string{
+				"PORT":      "2000",
+				"GRPC_PORT": "4000",
+			},
+			WaitingFor: wait.ForLog("app is started"),
+			SkipReaper: true,
+			AutoRemove: true,
+		},
+		Started: true,
+	})
+	s.Require().NoError(err)
+
+	time.Sleep(5 * time.Second)
+
+	authPort, err := authContainer.MappedPort(ctx, "2000")
+	s.Require().NoError(err)
+	authGrpcPort, err := authContainer.MappedPort(ctx, "4000")
+	s.Require().NoError(err)
+	authIp, err := authContainer.Host(ctx)
+	s.Require().NoError(err)
+
+	grpcConn := fmt.Sprintf("%s:%d", authIp, uint16(authGrpcPort.Int()))
+	grpcAuth, err := grpc.New(grpcConn)
+	if err != nil {
+		s.Suite.T().Errorf("grpc auth client init failed: %s", err)
+		s.Suite.T().FailNow()
+	}
+
+	// gAuth := new(mocks.GrpcAuthMock)
 	gAnalytic := new(mocks.GrpcAnalyticMock)
 
-	taskS := task.New(db, gAuth, gAnalytic)
+	taskS := task.New(db, grpcAuth, gAnalytic)
 
 	srv, err := h.New(l, taskS, c)
 	if err != nil {
@@ -110,8 +142,10 @@ func (s *TestcontainersSuite) SetupSuite() {
 
 	s.srv = srv
 	s.pgContainer = dbContainer
-	s.gAuthMock = gAuth
+	s.authContainer = authContainer
+	// s.gAuthMock = gAuth
 	s.gAnalyticMock = gAnalytic
+	s.authPort = uint16(authPort.Int())
 
 	go s.srv.Start()
 
@@ -121,21 +155,29 @@ func (s *TestcontainersSuite) SetupSuite() {
 func (s *TestcontainersSuite) TearDownSuite() {
 	_ = s.srv.Stop(context.Background())
 	s.pgContainer.Terminate(context.Background())
+	s.authContainer.Terminate(context.Background())
 	s.T().Log("Suite stop is done")
 }
 
 func (s *TestcontainersSuite) TestDBSelect() {
-	ctx := context.Background()
-	s.gAuthMock.On("Validate", ctx, mock.Anything, mock.Anything).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	bodyReq := strings.NewReader("")
+	// ctx := context.Background()
+	// s.gAuthMock.On("Validate", ctx, mock.Anything, mock.Anything).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
 
-	req, err := http.NewRequest("GET", "http://localhost:3000/task/v1/tasks/", bodyReq)
+	// bodyAuthReq := strings.NewReader("{\"login\": \"test123\", \"password\": \"qwerty\"}")
+	// reqAuth, err := http.NewRequest("POST", fmt.Sprintf("http://localhost:%d/task/v1/tasks/", s.authPort), bodyAuthReq)
+	// s.NoError(err)
+	// client := http.Client{}
+	// client.Do(reqAuth)
+
+	bodyTaskReq := strings.NewReader("")
+	reqTask, err := http.NewRequest("GET", "http://localhost:3000/task/v1/tasks/", bodyTaskReq)
 	s.NoError(err)
 
 	client := http.Client{}
-	response, err := client.Do(req)
+	responseTask, err := client.Do(reqTask)
 
 	s.NoError(err)
-	s.Equal(http.StatusOK, response.StatusCode)
-	response.Body.Close()
+	// s.Equal(http.StatusOK, responseTask.StatusCode)
+	s.Equal(http.StatusForbidden, responseTask.StatusCode)
+	responseTask.Body.Close()
 }
