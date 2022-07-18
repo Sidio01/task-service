@@ -9,6 +9,7 @@ import (
 type Task interface {
 	ListTasks(ctx context.Context, login string) ([]*models.Task, error)
 	RunTask(ctx context.Context, createdTask *models.Task) error
+	UpdateTask(ctx context.Context, id, login, name, text string) error
 	DeleteTask(ctx context.Context, login, id string) error
 	ApproveTask(ctx context.Context, login, id, approvalLogin string) error
 	DeclineTask(ctx context.Context, login, id, approvalLogin string) error
