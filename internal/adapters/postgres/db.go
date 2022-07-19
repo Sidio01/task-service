@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"time"
 
 	_ "github.com/lib/pq"
 	e "gitlab.com/g6834/team26/task/internal/domain/errors"
@@ -15,8 +16,8 @@ type PostgresDatabase struct {
 }
 
 func New(ctx context.Context, pgconn string) (*PostgresDatabase, error) {
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
+	_, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	db, err := sql.Open("postgres", pgconn+"?sslmode=disable")
 
 	if err != nil {
@@ -34,8 +35,8 @@ func (pdb *PostgresDatabase) Stop(ctx context.Context) error {
 }
 
 func (pdb *PostgresDatabase) List(ctx context.Context, login string) ([]*models.Task, error) {
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
+	_, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	var result []*models.Task
 
 	taskQuery := `SELECT "uuid", "name", "text", "login", "status" FROM "tasks" WHERE "login" = $1`
@@ -80,8 +81,8 @@ func (pdb *PostgresDatabase) List(ctx context.Context, login string) ([]*models.
 }
 
 func (pdb *PostgresDatabase) Run(ctx context.Context, t *models.Task) error {
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
+	_, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	tx, err := pdb.psqlClient.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -110,27 +111,9 @@ func (pdb *PostgresDatabase) Run(ctx context.Context, t *models.Task) error {
 	return nil
 }
 
-func (pdb *PostgresDatabase) Update(ctx context.Context, id, login, name, text string) error {
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
-	query := `UPDATE "tasks" SET "name" = $1, "text" = $2 WHERE "uuid" = $3 AND "login" = $4` // TODO: проверка на пустые строки в name и text
-	result, err := pdb.psqlClient.Exec(query, name, text, id, login)
-	if err != nil {
-		return err
-	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rowsAffected == 0 {
-		return e.ErrNotFound
-	}
-	return nil
-}
-
 func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error {
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
+	_, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	query := `DELETE FROM "tasks" WHERE "uuid" = $1 AND "login" = $2`
 	result, err := pdb.psqlClient.Exec(query, id, login)
 	if err != nil {
@@ -147,8 +130,8 @@ func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error
 }
 
 func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLogin string) error { // TODO: проверять на повторные вызовы и на статус задачи
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
+	_, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
 	result, err := pdb.psqlClient.Exec(query, true, id, approvalLogin)
 	if err != nil {
@@ -165,8 +148,8 @@ func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLog
 }
 
 func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLogin string) error { // TODO: проверять на повторные вызовы и на статус задачи
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
+	_, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
 	result, err := pdb.psqlClient.Exec(query, false, id, approvalLogin)
 	if err != nil {

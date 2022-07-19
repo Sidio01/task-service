@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"gitlab.com/g6834/team26/task/internal/ports"
 	"gitlab.com/g6834/team26/task/pkg/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -27,10 +26,10 @@ func New(url string) (*GrpcAuth, error) {
 	}, nil
 }
 
-func (GrpcAuth *GrpcAuth) Validate(ctx context.Context, tokens ports.TokenPair) (*api.AuthResponse, error) {
+func (GrpcAuth *GrpcAuth) Validate(ctx context.Context, refreshCookie, accessCookie string) (*api.AuthResponse, error) {
 	_, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	authReq := &api.AuthRequest{Service: "task", AccessToken: tokens.AccessToken.Value, RefreshToken: tokens.RefreshToken.Value}
+	authReq := &api.AuthRequest{Service: "task", AccessToken: accessCookie, RefreshToken: refreshCookie}
 	// log.Println(authReq)
 	grpcResponse, err := GrpcAuth.GrpcClient.VerifyToken(ctx, authReq)
 	if err != nil {

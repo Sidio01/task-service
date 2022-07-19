@@ -1,4 +1,4 @@
-package http
+package models
 
 type StatusApproved struct {
 	Status string `json:"status" example:"approved"`
@@ -10,8 +10,4 @@ type StatusDeclined struct {
 
 type StatusDeleted struct {
 	Status string `json:"status" example:"deleted"`
-}
-
-type StatusUpdated struct {
-	Status string `json:"status" example:"updated"`
 }
