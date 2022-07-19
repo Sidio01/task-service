@@ -2,11 +2,6 @@ package models
 
 import "database/sql"
 
-type RunTask struct {
-	ApprovalLogins []string `json:"approvalLogins" swaggertype:"array,string" example:"test626,zxcvb"`
-	InitiatorLogin string   `json:"initiatorLogin" example:"test123"`
-}
-
 type Approval struct {
 	// Approved      bool   `json:"approved"`
 	// Sent          bool   `json:"sent"`

@@ -44,6 +44,14 @@ func (s *Service) RunTask(ctx context.Context, createdTask *models.Task) error {
 	return nil
 }
 
+func (s *Service) UpdateTask(ctx context.Context, id, login, name, text string) error {
+	err := s.db.Update(ctx, id, login, name, text)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Service) DeleteTask(ctx context.Context, login, id string) error { // TODO: отправлять письма всем участникам об отмене операции
 	err := s.db.Delete(ctx, login, id)
 	if err != nil {
@@ -86,8 +94,8 @@ func (s *Service) DeclineTask(ctx context.Context, login, id, approvalLogin stri
 	return nil
 }
 
-func (s *Service) Validate(ctx context.Context, refreshCookie, accessCookie string) (*api.AuthResponse, error) {
-	grpcResponse, err := s.grpcAuth.Validate(ctx, refreshCookie, accessCookie)
+func (s *Service) Validate(ctx context.Context, tokens ports.TokenPair) (*api.AuthResponse, error) {
+	grpcResponse, err := s.grpcAuth.Validate(ctx, tokens)
 	if err != nil {
 		return nil, err
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"gitlab.com/g6834/team26/task/internal/domain/models"
+	"gitlab.com/g6834/team26/task/internal/ports"
 	"gitlab.com/g6834/team26/task/pkg/api"
 )
 
@@ -19,6 +20,11 @@ func (d *DbMock) List(ctx context.Context, login string) ([]*models.Task, error)
 
 func (d *DbMock) Run(ctx context.Context, t *models.Task) error {
 	args := d.Called(ctx, t)
+	return args.Error(0)
+}
+
+func (d *DbMock) Update(ctx context.Context, id, login, name, text string) error {
+	args := d.Called(ctx, id, login, name, text)
 	return args.Error(0)
 }
 
@@ -41,8 +47,8 @@ type GrpcAuthMock struct {
 	mock.Mock
 }
 
-func (g *GrpcAuthMock) Validate(ctx context.Context, refreshCookie, accessCookie string) (*api.AuthResponse, error) {
-	args := g.Called(ctx, refreshCookie, accessCookie)
+func (g *GrpcAuthMock) Validate(ctx context.Context, tokens ports.TokenPair) (*api.AuthResponse, error) {
+	args := g.Called(ctx, tokens)
 	return args.Get(0).(*api.AuthResponse), args.Error(1)
 }
 
