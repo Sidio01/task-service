@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"gitlab.com/g6834/team26/task/internal/domain/models"
 	"gitlab.com/g6834/team26/task/pkg/api"
 	"gitlab.com/g6834/team26/task/pkg/uuid"
 	"google.golang.org/grpc"
@@ -28,39 +27,16 @@ func NewAnalytic(url string) (*GrpcAnalytic, error) {
 	}, nil
 }
 
-func (GrpcAnalytic *GrpcAnalytic) AddTask(ctx context.Context, t *models.Task) error {
+func (GrpcAnalytic *GrpcAnalytic) ActionTask(ctx context.Context, u, t, v string) error {
 	_, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	emails := make([]string, len(t.Approvals))
-	for idx, email := range t.Approvals {
-		emails[idx] = email.ApprovalLogin
-	}
-
-	addTaskReq := &api.AddTaskRequest{UUID: t.UUID,
-		Login:       t.InitiatorLogin,
-		Timestamp:   time.Now().Unix(),
-		Emails:      emails,
+	actionTaskReq := &api.MessageRequest{
+		UUID:        u,
 		UUIDMessage: uuid.GenUUID(),
-	}
-	// log.Println(addTaskReq)
-	_, err := GrpcAnalytic.GrpcClient.AddTask(ctx, addTaskReq)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (GrpcAnalytic *GrpcAnalytic) ActionTask(ctx context.Context, u, e, a string, v bool) error {
-	_, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	actionTaskReq := &api.ActionTaskRequest{UUID: u,
 		Timestamp:   time.Now().Unix(),
-		Email:       e,
-		Action:      a,
+		Type:        t,
 		Value:       v,
-		UUIDMessage: uuid.GenUUID(),
 	}
 	// log.Println(addTaskReq)
 	_, err := GrpcAnalytic.GrpcClient.ActionTask(ctx, actionTaskReq)

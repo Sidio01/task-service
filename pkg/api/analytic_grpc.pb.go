@@ -22,8 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AnalyticClient interface {
-	AddTask(ctx context.Context, in *AddTaskRequest, opts ...grpc.CallOption) (*AnalyticResponse, error)
-	ActionTask(ctx context.Context, in *ActionTaskRequest, opts ...grpc.CallOption) (*AnalyticResponse, error)
+	ActionTask(ctx context.Context, in *MessageRequest, opts ...grpc.CallOption) (*AnalyticResponse, error)
 }
 
 type analyticClient struct {
@@ -34,16 +33,7 @@ func NewAnalyticClient(cc grpc.ClientConnInterface) AnalyticClient {
 	return &analyticClient{cc}
 }
 
-func (c *analyticClient) AddTask(ctx context.Context, in *AddTaskRequest, opts ...grpc.CallOption) (*AnalyticResponse, error) {
-	out := new(AnalyticResponse)
-	err := c.cc.Invoke(ctx, "/api.Analytic/AddTask", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *analyticClient) ActionTask(ctx context.Context, in *ActionTaskRequest, opts ...grpc.CallOption) (*AnalyticResponse, error) {
+func (c *analyticClient) ActionTask(ctx context.Context, in *MessageRequest, opts ...grpc.CallOption) (*AnalyticResponse, error) {
 	out := new(AnalyticResponse)
 	err := c.cc.Invoke(ctx, "/api.Analytic/ActionTask", in, out, opts...)
 	if err != nil {
@@ -56,8 +46,7 @@ func (c *analyticClient) ActionTask(ctx context.Context, in *ActionTaskRequest, 
 // All implementations must embed UnimplementedAnalyticServer
 // for forward compatibility
 type AnalyticServer interface {
-	AddTask(context.Context, *AddTaskRequest) (*AnalyticResponse, error)
-	ActionTask(context.Context, *ActionTaskRequest) (*AnalyticResponse, error)
+	ActionTask(context.Context, *MessageRequest) (*AnalyticResponse, error)
 	mustEmbedUnimplementedAnalyticServer()
 }
 
@@ -65,10 +54,7 @@ type AnalyticServer interface {
 type UnimplementedAnalyticServer struct {
 }
 
-func (UnimplementedAnalyticServer) AddTask(context.Context, *AddTaskRequest) (*AnalyticResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AddTask not implemented")
-}
-func (UnimplementedAnalyticServer) ActionTask(context.Context, *ActionTaskRequest) (*AnalyticResponse, error) {
+func (UnimplementedAnalyticServer) ActionTask(context.Context, *MessageRequest) (*AnalyticResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActionTask not implemented")
 }
 func (UnimplementedAnalyticServer) mustEmbedUnimplementedAnalyticServer() {}
@@ -84,26 +70,8 @@ func RegisterAnalyticServer(s grpc.ServiceRegistrar, srv AnalyticServer) {
 	s.RegisterService(&Analytic_ServiceDesc, srv)
 }
 
-func _Analytic_AddTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AddTaskRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AnalyticServer).AddTask(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/api.Analytic/AddTask",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AnalyticServer).AddTask(ctx, req.(*AddTaskRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Analytic_ActionTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ActionTaskRequest)
+	in := new(MessageRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -115,7 +83,7 @@ func _Analytic_ActionTask_Handler(srv interface{}, ctx context.Context, dec func
 		FullMethod: "/api.Analytic/ActionTask",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AnalyticServer).ActionTask(ctx, req.(*ActionTaskRequest))
+		return srv.(AnalyticServer).ActionTask(ctx, req.(*MessageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -127,10 +95,6 @@ var Analytic_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "api.Analytic",
 	HandlerType: (*AnalyticServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "AddTask",
-			Handler:    _Analytic_AddTask_Handler,
-		},
 		{
 			MethodName: "ActionTask",
 			Handler:    _Analytic_ActionTask_Handler,

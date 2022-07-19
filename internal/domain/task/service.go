@@ -36,7 +36,7 @@ func (s *Service) RunTask(ctx context.Context, createdTask *models.Task) error {
 		return err
 	}
 
-	err = s.analyticSender.AddTask(ctx, createdTask) // TODO: отправлять сообщение в отдельной горутине
+	err = s.analyticSender.ActionTask(ctx, createdTask.UUID, "run", createdTask.InitiatorLogin) // TODO: отправлять сообщение в отдельной горутине
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func (s *Service) DeleteTask(ctx context.Context, login, id string) error { // T
 		return err
 	}
 
-	err = s.analyticSender.ActionTask(ctx, id, "", "delete", true) // TODO: отправлять сообщение в отдельной горутине
+	err = s.analyticSender.ActionTask(ctx, id, "delete", "true") // TODO: отправлять сообщение в отдельной горутине
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func (s *Service) ApproveTask(ctx context.Context, login, id, approvalLogin stri
 		return err
 	}
 
-	err = s.analyticSender.ActionTask(ctx, id, approvalLogin, "approve", true) // TODO: отправлять сообщение в отдельной горутине
+	err = s.analyticSender.ActionTask(ctx, id, "approve", "true") // TODO: отправлять сообщение в отдельной горутине
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (s *Service) DeclineTask(ctx context.Context, login, id, approvalLogin stri
 		return err
 	}
 
-	err = s.analyticSender.ActionTask(ctx, id, approvalLogin, "approve", false) // TODO: отправлять сообщение в отдельной горутине
+	err = s.analyticSender.ActionTask(ctx, id, "approve", "false") // TODO: отправлять сообщение в отдельной горутине
 	if err != nil {
 		return err
 	}
