@@ -14,6 +14,8 @@ ENV GRPC_ANALYTIC="mts_teta_projects-analytic-1:4000"
 ENV PROFILING=false
 ENV PG_URL="postgres://team26:mNgd2ITbhVGd@91.185.93.23:5432/team26"
 ENV JSON_DB_FILE="db.jsonl"
+ENV KAFKA_URL="91.185.95.87:9094"
+ENV KAFKA_ANALYTIC_TOPIC="team26-analytic"
 
 COPY --from=builder /app/application /app/application
 CMD ["/app/application"]

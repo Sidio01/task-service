@@ -52,11 +52,11 @@ func (g *GrpcAuthMock) Validate(ctx context.Context, tokens ports.TokenPair) (*a
 	return args.Get(0).(*api.AuthResponse), args.Error(1)
 }
 
-type GrpcAnalyticMock struct {
+type AnalyticMessageSenderMock struct {
 	mock.Mock
 }
 
-func (g *GrpcAnalyticMock) ActionTask(ctx context.Context, u, t, v string) error {
-	args := g.Called(ctx, u, t, v)
+func (ams *AnalyticMessageSenderMock) ActionTask(ctx context.Context, u, t, v string) error {
+	args := ams.Called(ctx, u, t, v)
 	return args.Error(0)
 }

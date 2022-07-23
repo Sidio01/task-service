@@ -27,12 +27,11 @@ import (
 type TestcontainersSuite struct {
 	suite.Suite
 
-	srv           *h.Server
-	pgContainer   testcontainers.Container
-	authContainer testcontainers.Container
-	// gAuthMock     *mocks.GrpcAuthMock
-	gAnalyticMock *mocks.GrpcAnalyticMock
-	authPort      uint16
+	srv            *h.Server
+	pgContainer    testcontainers.Container
+	authContainer  testcontainers.Container
+	analyticSender *mocks.AnalyticMessageSenderMock
+	authPort       uint16
 }
 
 const (
@@ -129,10 +128,9 @@ func (s *TestcontainersSuite) SetupSuite() {
 		s.Suite.T().FailNow()
 	}
 
-	// gAuth := new(mocks.GrpcAuthMock)
-	gAnalytic := new(mocks.GrpcAnalyticMock)
+	analyticSender := new(mocks.AnalyticMessageSenderMock)
 
-	taskS := task.New(db, grpcAuth, gAnalytic)
+	taskS := task.New(db, grpcAuth, analyticSender)
 
 	srv, err := h.New(l, taskS, c)
 	if err != nil {
@@ -143,8 +141,7 @@ func (s *TestcontainersSuite) SetupSuite() {
 	s.srv = srv
 	s.pgContainer = dbContainer
 	s.authContainer = authContainer
-	// s.gAuthMock = gAuth
-	s.gAnalyticMock = gAnalytic
+	s.analyticSender = analyticSender
 	s.authPort = uint16(authPort.Int())
 
 	go s.srv.Start()

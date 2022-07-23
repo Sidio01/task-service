@@ -37,10 +37,10 @@ func (s *Service) RunTask(ctx context.Context, createdTask *models.Task) error {
 		return err
 	}
 
-	// err = s.analyticSender.ActionTask(ctx, createdTask.UUID, "run", createdTask.InitiatorLogin) // TODO: отправлять сообщение в отдельной горутине
-	// if err != nil {
-	// 	return err
-	// }
+	err = s.analyticSender.ActionTask(ctx, createdTask.UUID, "run", createdTask.InitiatorLogin) // TODO: отправлять сообщение в отдельной горутине
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -59,10 +59,10 @@ func (s *Service) DeleteTask(ctx context.Context, login, id string) error { // T
 		return err
 	}
 
-	// err = s.analyticSender.ActionTask(ctx, id, "delete", "true") // TODO: отправлять сообщение в отдельной горутине
-	// if err != nil {
-	// 	return err
-	// }
+	err = s.analyticSender.ActionTask(ctx, id, "delete", "true") // TODO: отправлять сообщение в отдельной горутине
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -74,22 +74,22 @@ func (s *Service) ApproveTask(ctx context.Context, login, id, approvalLogin stri
 	}
 	log.Println(status)
 
-	// switch {
-	// case status == "":
-	// 	err = s.analyticSender.ActionTask(ctx, id, "approve", "true") // TODO: отправлять сообщение в отдельной горутине
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// case status == "completed":
-	// 	err = s.analyticSender.ActionTask(ctx, id, "approve", "true") // TODO: отправлять сообщение в отдельной горутине
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	err = s.analyticSender.ActionTask(ctx, id, "completed", "true") // TODO: отправлять сообщение в отдельной горутине
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
+	switch {
+	case status == "":
+		err = s.analyticSender.ActionTask(ctx, id, "approve", "true") // TODO: отправлять сообщение в отдельной горутине
+		if err != nil {
+			return err
+		}
+	case status == "completed":
+		err = s.analyticSender.ActionTask(ctx, id, "approve", "true") // TODO: отправлять сообщение в отдельной горутине
+		if err != nil {
+			return err
+		}
+		err = s.analyticSender.ActionTask(ctx, id, "completed", "true") // TODO: отправлять сообщение в отдельной горутине
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -100,10 +100,10 @@ func (s *Service) DeclineTask(ctx context.Context, login, id, approvalLogin stri
 		return err
 	}
 
-	// err = s.analyticSender.ActionTask(ctx, id, "approve", "false") // TODO: отправлять сообщение в отдельной горутине
-	// if err != nil {
-	// 	return err
-	// }
+	err = s.analyticSender.ActionTask(ctx, id, "approve", "false") // TODO: отправлять сообщение в отдельной горутине
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
