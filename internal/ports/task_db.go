@@ -11,6 +11,6 @@ type TaskDB interface {
 	Run(ctx context.Context, t *models.Task) error
 	Update(ctx context.Context, id, login, name, text string) error
 	Delete(ctx context.Context, login, id string) error
-	Approve(ctx context.Context, login, id, approvalLogin string) error
+	Approve(ctx context.Context, login, id, approvalLogin string) (string, error)
 	Decline(ctx context.Context, login, id, approvalLogin string) error
 }

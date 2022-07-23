@@ -33,9 +33,9 @@ func (d *DbMock) Delete(ctx context.Context, login, id string) error {
 	return args.Error(0)
 }
 
-func (d *DbMock) Approve(ctx context.Context, login, id, approvalLogin string) error {
+func (d *DbMock) Approve(ctx context.Context, login, id, approvalLogin string) (string, error) {
 	args := d.Called(ctx, login, id, approvalLogin)
-	return args.Error(0)
+	return args.String(0), args.Error(1)
 }
 
 func (d *DbMock) Decline(ctx context.Context, login, id, approvalLogin string) error {
@@ -56,12 +56,7 @@ type GrpcAnalyticMock struct {
 	mock.Mock
 }
 
-func (g *GrpcAnalyticMock) AddTask(ctx context.Context, t *models.Task) error {
-	args := g.Called(ctx, t)
-	return args.Error(0)
-}
-
-func (g *GrpcAnalyticMock) ActionTask(ctx context.Context, u, e, a string, v bool) error {
-	args := g.Called(ctx, u, e, a, v)
+func (g *GrpcAnalyticMock) ActionTask(ctx context.Context, u, t, v string) error {
+	args := g.Called(ctx, u, t, v)
 	return args.Error(0)
 }

@@ -167,7 +167,6 @@ func (s *Server) GetTasksListHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(t)
 }
 
-// TODO: добавить эндпойнт на изменение задачи
 // Update Task
 // @ID UpdateTask
 // @Security access_token

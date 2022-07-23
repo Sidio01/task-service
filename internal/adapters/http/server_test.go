@@ -155,7 +155,7 @@ func (s *authTestSuite) TestRunHandlerSuccess() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("AddTask", mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	bodyReq := strings.NewReader("{\"approvalLogins\": [\"test626\",\"zxcvb\"],\"initiatorLogin\": \"test123\"}")
 
@@ -187,7 +187,7 @@ func (s *authTestSuite) TestRunHandlerBadRequest() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("AddTask", mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	bodyReq := strings.NewReader("{\"approvalLogins\": {\"test626\": \"\", \"zxcvb\": \"\"},\"initiatorLogin\": \"test123\"}")
 
@@ -219,7 +219,7 @@ func (s *authTestSuite) TestRunHandlerForbidden() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: false, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, e.ErrAuthFailed)
-	s.gAnalytic.On("AddTask", mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	bodyReq := strings.NewReader("{\"approvalLogins\": [\"test626\",\"zxcvb\"],\"initiatorLogin\": \"test123\"}")
 
@@ -240,10 +240,9 @@ func (s *authTestSuite) TestRunHandlerForbidden() {
 }
 
 // TODO: добавить тесты на Update
-
-func (s *authTestSuite) TestApproveHandlerSuccess() {
+func (s *authTestSuite) TestUpdateHandlerSuccess() {
 	// ctx := context.Background()
-	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(nil)
+	s.db.On("Update", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -253,7 +252,106 @@ func (s *authTestSuite) TestApproveHandlerSuccess() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	bodyReq := strings.NewReader("{\"name\": \"name update\", \"text\": \"text update\"}")
+	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
+
+	req, err := http.NewRequest("PUT", fmt.Sprintf("http://localhost:3000/task/v1/tasks/%s", uuid), bodyReq)
+	s.NoError(err)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: "access_token"})
+	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "refresh_token"})
+
+	client := http.Client{}
+	response, err := client.Do(req)
+
+	// log.Println(err)
+	// data, err := ioutil.ReadAll(response.Body)
+	// log.Println(string(data))
+	s.NoError(err)
+	s.Equal(http.StatusOK, response.StatusCode)
+	response.Body.Close()
+}
+
+func (s *authTestSuite) TestUpdateHandlerBadRequest() {
+	// ctx := context.Background()
+	s.db.On("Update", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(e.ErrInvalidJsonBody)
+	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
+		AccessToken: ports.TokenPairVal{
+			Value: "access_token",
+			// Expires: time.Now().Add(time.Hour),
+		},
+		RefreshToken: ports.TokenPairVal{
+			Value: "refresh_token",
+			// Expires: time.Now().Add(time.Hour),
+		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	bodyReq := strings.NewReader("{\"name\": \"name update\", \"text\": \"text update\"}")
+	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
+
+	req, err := http.NewRequest("PUT", fmt.Sprintf("http://localhost:3000/task/v1/tasks/%s", uuid), bodyReq)
+	s.NoError(err)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: "access_token"})
+	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "refresh_token"})
+
+	client := http.Client{}
+	response, err := client.Do(req)
+
+	// log.Println(err)
+	// data, err := ioutil.ReadAll(response.Body)
+	// log.Println(string(data))
+	s.NoError(err)
+	s.Equal(http.StatusBadRequest, response.StatusCode)
+	response.Body.Close()
+}
+
+func (s *authTestSuite) TestUpdateHandlerForbidden() {
+	// ctx := context.Background()
+	s.db.On("Update", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
+		AccessToken: ports.TokenPairVal{
+			Value: "access_token",
+			// Expires: time.Now().Add(time.Hour),
+		},
+		RefreshToken: ports.TokenPairVal{
+			Value: "refresh_token",
+			// Expires: time.Now().Add(time.Hour),
+		}}).Return(&api.AuthResponse{Result: false, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, e.ErrAuthFailed)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	bodyReq := strings.NewReader("{\"name\": \"name update\", \"text\": \"text update\"}")
+	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
+
+	req, err := http.NewRequest("PUT", fmt.Sprintf("http://localhost:3000/task/v1/tasks/%s", uuid), bodyReq)
+	s.NoError(err)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: "access_token"})
+	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "refresh_token"})
+
+	client := http.Client{}
+	response, err := client.Do(req)
+
+	// log.Println(err)
+	// data, err := ioutil.ReadAll(response.Body)
+	// log.Println(string(data))
+	s.NoError(err)
+	s.Equal(http.StatusForbidden, response.StatusCode)
+	response.Body.Close()
+}
+
+func (s *authTestSuite) TestApproveHandlerSuccess() {
+	// ctx := context.Background()
+	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return("", nil)
+	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
+		AccessToken: ports.TokenPairVal{
+			Value: "access_token",
+			// Expires: time.Now().Add(time.Hour),
+		},
+		RefreshToken: ports.TokenPairVal{
+			Value: "refresh_token",
+			// Expires: time.Now().Add(time.Hour),
+		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -277,7 +375,7 @@ func (s *authTestSuite) TestApproveHandlerSuccess() {
 
 func (s *authTestSuite) TestApproveHandlerForbidden() {
 	// ctx := context.Background()
-	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(nil)
+	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return("", nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -287,7 +385,7 @@ func (s *authTestSuite) TestApproveHandlerForbidden() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: false, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, e.ErrAuthFailed)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -311,7 +409,7 @@ func (s *authTestSuite) TestApproveHandlerForbidden() {
 
 func (s *authTestSuite) TestApproveHandlerNotFound() {
 	// ctx := context.Background()
-	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(e.ErrNotFound)
+	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return("", e.ErrNotFound)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -321,7 +419,7 @@ func (s *authTestSuite) TestApproveHandlerNotFound() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -355,7 +453,7 @@ func (s *authTestSuite) TestDeclineHandlerSuccess() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -389,7 +487,7 @@ func (s *authTestSuite) TestDeclineHandlerForbidden() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: false, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, e.ErrAuthFailed)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -423,7 +521,7 @@ func (s *authTestSuite) TestDeclineHandlerNotFound() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -457,7 +555,7 @@ func (s *authTestSuite) TestDeleteHandlerSuccess() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
 	bodyReq := strings.NewReader("")
@@ -490,7 +588,7 @@ func (s *authTestSuite) TestDeleteHandlerForbidden() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: false, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, e.ErrAuthFailed)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
 	bodyReq := strings.NewReader("")
@@ -523,7 +621,7 @@ func (s *authTestSuite) TestDeleteHandlerNotFound() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
 	bodyReq := strings.NewReader("")

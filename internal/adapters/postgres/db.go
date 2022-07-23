@@ -154,7 +154,7 @@ func (pdb *PostgresDatabase) Update(ctx context.Context, id, login, name, text s
 func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error {
 	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
 	// defer cancel()
-	query := `DELETE FROM "tasks" WHERE "uuid" = $1 AND "login" = $2`
+	query := `DELETE FROM "tasks" WHERE "uuid" = $1 AND "login" = $2` // TODO: возможно стоит не удалять задачу, а менять статус
 	result, err := pdb.psqlClient.Exec(query, id, login)
 	if err != nil {
 		return err
@@ -171,45 +171,70 @@ func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error
 	return nil
 }
 
-func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLogin string) error {
+func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLogin string) (string, error) {
 	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
 	// defer cancel()
 	tx, err := pdb.psqlClient.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = pdb.checkTaskStatus(id)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = pdb.checkApproval(id, approvalLogin)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
 	result, err := tx.Exec(query, true, id, approvalLogin)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return "", err
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if rowsAffected == 0 {
-		return e.ErrNotFound
+		return "", e.ErrNotFound
 	}
 
-	err = tx.Commit()
+	currPosition, err := pdb.getCurrentApprovalPosition(id, approvalLogin)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	maxPosition, err := pdb.getMaxApprovalPosition(id)
+	if err != nil {
+		return "", err
+	}
+
+	log.Println("currPosition -", currPosition)
+	log.Println("maxPosition -", maxPosition)
+
+	if currPosition == maxPosition {
+		err = pdb.changeTaskStatus(tx, id, "completed")
+		if err != nil {
+			tx.Rollback()
+			return "", err
+		}
+		err = tx.Commit()
+		if err != nil {
+			return "", err
+		}
+		return "completed", nil
+	} else {
+		err = tx.Commit()
+		if err != nil {
+			return "", err
+		}
+		return "", nil
+	}
 }
 
 func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLogin string) error {
@@ -275,6 +300,7 @@ func (pdb *PostgresDatabase) checkTaskStatus(id string) error {
 	taskQuery := `SELECT "status" FROM "tasks" WHERE "uuid" = $1`
 	taskRow := pdb.psqlClient.QueryRow(taskQuery, id)
 	taskRow.Scan(&task.Status)
+	task.Status = strings.TrimSpace(task.Status)
 	if task.Status != "created" {
 		return e.ErrTaskNotAvailableForApproval
 	}
@@ -288,4 +314,20 @@ func (pdb *PostgresDatabase) changeTaskStatus(tx *sql.Tx, id, status string) err
 		return err
 	}
 	return nil
+}
+
+func (pdb *PostgresDatabase) getCurrentApprovalPosition(id, approvalLogin string) (int, error) {
+	var currentApprovalPosition int
+	maxApprovalQuery := `SELECT "n" FROM "approvals" WHERE "task_uuid" = $1 AND "approval_login" = $2 ORDER BY "n" DESC LIMIT 1`
+	maxApprovalRow := pdb.psqlClient.QueryRow(maxApprovalQuery, id, approvalLogin)
+	maxApprovalRow.Scan(&currentApprovalPosition)
+	return currentApprovalPosition, nil
+}
+
+func (pdb *PostgresDatabase) getMaxApprovalPosition(id string) (int, error) {
+	var maxApprovalPosition int
+	maxApprovalQuery := `SELECT "n" FROM "approvals" WHERE "task_uuid" = $1 ORDER BY "n" DESC LIMIT 1`
+	maxApprovalRow := pdb.psqlClient.QueryRow(maxApprovalQuery, id)
+	maxApprovalRow.Scan(&maxApprovalPosition)
+	return maxApprovalPosition, nil
 }
