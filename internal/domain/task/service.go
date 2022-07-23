@@ -85,7 +85,7 @@ func (s *Service) ApproveTask(ctx context.Context, login, id, approvalLogin stri
 		if err != nil {
 			return err
 		}
-		err = s.analyticSender.ActionTask(ctx, id, "completed", "true") // TODO: отправлять сообщение в отдельной горутине
+		err = s.analyticSender.ActionTask(ctx, id, "complete", "true") // TODO: отправлять сообщение в отдельной горутине
 		if err != nil {
 			return err
 		}
