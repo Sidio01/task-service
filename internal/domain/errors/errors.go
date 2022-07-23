@@ -13,6 +13,8 @@ var (
 	ErrTokenLoginNotEqualInitiatorLogin = errors.New("{\"error\": \"token login not equal initiator login\"}")
 	ErrNotFound                         = errors.New("{\"error\": \"task id or approval login not found. please check variables\"}")
 	ErrNothingToChange                  = errors.New("name and text can't be empty strings at same time")
+	ErrApprovalHasBeenDone              = errors.New("approval has already been done")
+	ErrTaskNotAvailableForApproval      = errors.New("task is not available for approval")
 )
 
 type JsonErrWrapper struct {

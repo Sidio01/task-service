@@ -167,15 +167,32 @@ func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error
 	if rowsAffected == 0 {
 		return e.ErrNotFound
 	}
+
 	return nil
 }
 
-func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLogin string) error { // TODO: проверять на повторные вызовы и на статус задачи
+func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLogin string) error {
 	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
 	// defer cancel()
-	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
-	result, err := pdb.psqlClient.Exec(query, true, id, approvalLogin)
+	tx, err := pdb.psqlClient.BeginTx(ctx, nil)
 	if err != nil {
+		return err
+	}
+
+	err = pdb.checkTaskStatus(id)
+	if err != nil {
+		return err
+	}
+
+	err = pdb.checkApproval(id, approvalLogin)
+	if err != nil {
+		return err
+	}
+
+	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
+	result, err := tx.Exec(query, true, id, approvalLogin)
+	if err != nil {
+		tx.Rollback()
 		return err
 	}
 
@@ -186,15 +203,37 @@ func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLog
 	if rowsAffected == 0 {
 		return e.ErrNotFound
 	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLogin string) error { // TODO: проверять на повторные вызовы и на статус задачи
+func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLogin string) error {
 	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
 	// defer cancel()
-	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
-	result, err := pdb.psqlClient.Exec(query, false, id, approvalLogin)
+	tx, err := pdb.psqlClient.BeginTx(ctx, nil)
 	if err != nil {
+		return err
+	}
+
+	err = pdb.checkTaskStatus(id)
+	if err != nil {
+		return err
+	}
+
+	err = pdb.checkApproval(id, approvalLogin)
+	if err != nil {
+		return err
+	}
+
+	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
+	result, err := tx.Exec(query, false, id, approvalLogin)
+	if err != nil {
+		tx.Rollback()
 		return err
 	}
 
@@ -205,9 +244,48 @@ func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLog
 	if rowsAffected == 0 {
 		return e.ErrNotFound
 	}
+
+	err = pdb.changeTaskStatus(tx, id, "declined")
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (pdb *PostgresDatabase) checkApproval() error {
+func (pdb *PostgresDatabase) checkApproval(id, approvalLogin string) error {
+	var approval models.Approval
+	approvalQuery := `SELECT "approved" FROM "approvals" WHERE "task_uuid" = $1 AND "approval_login" = $2`
+	approvalRow := pdb.psqlClient.QueryRow(approvalQuery, id, approvalLogin)
+	approvalRow.Scan(&approval.Approved)
+	if approval.Approved.Valid {
+		return e.ErrApprovalHasBeenDone
+	}
+	return nil
+}
+
+func (pdb *PostgresDatabase) checkTaskStatus(id string) error {
+	var task models.Task
+	taskQuery := `SELECT "status" FROM "tasks" WHERE "uuid" = $1`
+	taskRow := pdb.psqlClient.QueryRow(taskQuery, id)
+	taskRow.Scan(&task.Status)
+	if task.Status != "created" {
+		return e.ErrTaskNotAvailableForApproval
+	}
+	return nil
+}
+
+func (pdb *PostgresDatabase) changeTaskStatus(tx *sql.Tx, id, status string) error {
+	query := `UPDATE "tasks" SET "status" = $1 WHERE "uuid" = $2`
+	_, err := tx.Exec(query, status, id)
+	if err != nil {
+		return err
+	}
 	return nil
 }
