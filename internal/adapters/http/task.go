@@ -176,7 +176,7 @@ func (s *Server) GetTasksListHandler(w http.ResponseWriter, r *http.Request) {
 // @Summary Обновление задачи согласования
 // @Description Внесение изменений в задачу согласования в части наименования и описания задачи
 // @Param taskID path string required "Task ID" Format(uuid)
-// TODO: добавить боди параметр
+// @Param UpdateTask body models.UpdateTask true "Update Task"
 // @Success 200 {object} StatusUpdated
 // @Failure 400 {object} e.ErrApiBadRequest
 // @Failure 403 {object} e.ErrApiAuthFailed
@@ -206,7 +206,7 @@ func (s *Server) UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.task.UpdateTask(ctx, login, id, updateTask.Name, updateTask.Text)
+	err = s.task.UpdateTask(ctx, id, login, updateTask.Name, updateTask.Text)
 	if errors.Is(err, e.ErrNotFound) {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusNotFound)

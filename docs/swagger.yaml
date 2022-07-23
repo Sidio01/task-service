@@ -26,6 +26,30 @@ definitions:
         example: task id or approval login not found. please check variables
         type: string
     type: object
+  http.StatusApproved:
+    properties:
+      status:
+        example: approved
+        type: string
+    type: object
+  http.StatusDeclined:
+    properties:
+      status:
+        example: declined
+        type: string
+    type: object
+  http.StatusDeleted:
+    properties:
+      status:
+        example: deleted
+        type: string
+    type: object
+  http.StatusUpdated:
+    properties:
+      status:
+        example: updated
+        type: string
+    type: object
   models.Approval:
     properties:
       approvalLogin:
@@ -54,23 +78,11 @@ definitions:
       initiatorLogin:
         example: test123
         type: string
-    type: object
-  models.StatusApproved:
-    properties:
-      status:
-        example: approved
+      name:
+        example: test task
         type: string
-    type: object
-  models.StatusDeclined:
-    properties:
-      status:
-        example: declined
-        type: string
-    type: object
-  models.StatusDeleted:
-    properties:
-      status:
-        example: deleted
+      text:
+        example: this is test task 1
         type: string
     type: object
   models.Task:
@@ -93,6 +105,15 @@ definitions:
         type: string
       uuid:
         example: eaca044f-5f02-4bc1-ba57-48845a473e42
+        type: string
+    type: object
+  models.UpdateTask:
+    properties:
+      name:
+        example: test task
+        type: string
+      text:
+        example: this is test task 1
         type: string
     type: object
   sql.NullBool:
@@ -160,7 +181,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.StatusDeleted'
+            $ref: '#/definitions/http.StatusDeleted'
         "400":
           description: Bad Request
           schema:
@@ -181,6 +202,50 @@ paths:
       - access_token: []
       - refresh_token: []
       summary: Удаление созданной задачи
+      tags:
+      - Работа с сервисом создания и согласования задач
+    put:
+      description: Внесение изменений в задачу согласования в части наименования и
+        описания задачи
+      operationId: UpdateTask
+      parameters:
+      - description: Task ID
+        format: uuid
+        in: path
+        name: taskID
+        required: true
+        type: string
+      - description: Update Task
+        in: body
+        name: UpdateTask
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateTask'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.StatusUpdated'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.ErrApiBadRequest'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.ErrApiAuthFailed'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.ErrApiNotFound'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.ErrApiInternalServerError'
+      security:
+      - access_token: []
+      - refresh_token: []
+      summary: Обновление задачи согласования
       tags:
       - Работа с сервисом создания и согласования задач
   /tasks/{taskID}/approve/{approvalLogin}:
@@ -205,7 +270,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.StatusApproved'
+            $ref: '#/definitions/http.StatusApproved'
         "400":
           description: Bad Request
           schema:
@@ -249,7 +314,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.StatusDeclined'
+            $ref: '#/definitions/http.StatusDeclined'
         "400":
           description: Bad Request
           schema:

@@ -125,6 +125,73 @@ const docTemplate = `{
             }
         },
         "/tasks/{taskID}": {
+            "put": {
+                "security": [
+                    {
+                        "access_token": []
+                    },
+                    {
+                        "refresh_token": []
+                    }
+                ],
+                "description": "Внесение изменений в задачу согласования в части наименования и описания задачи",
+                "tags": [
+                    "Работа с сервисом создания и согласования задач"
+                ],
+                "summary": "Обновление задачи согласования",
+                "operationId": "UpdateTask",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Task ID",
+                        "name": "taskID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Task",
+                        "name": "UpdateTask",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateTask"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.StatusUpdated"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.ErrApiBadRequest"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.ErrApiAuthFailed"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.ErrApiNotFound"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.ErrApiInternalServerError"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "security": [
                     {
@@ -154,7 +221,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.StatusDeleted"
+                            "$ref": "#/definitions/http.StatusDeleted"
                         }
                     },
                     "400": {
@@ -221,7 +288,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.StatusApproved"
+                            "$ref": "#/definitions/http.StatusApproved"
                         }
                     },
                     "400": {
@@ -288,7 +355,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.StatusDeclined"
+                            "$ref": "#/definitions/http.StatusDeclined"
                         }
                     },
                     "400": {
@@ -356,6 +423,42 @@ const docTemplate = `{
                 }
             }
         },
+        "http.StatusApproved": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "approved"
+                }
+            }
+        },
+        "http.StatusDeclined": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "declined"
+                }
+            }
+        },
+        "http.StatusDeleted": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "deleted"
+                }
+            }
+        },
+        "http.StatusUpdated": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "updated"
+                }
+            }
+        },
         "models.Approval": {
             "type": "object",
             "properties": {
@@ -392,33 +495,14 @@ const docTemplate = `{
                 "initiatorLogin": {
                     "type": "string",
                     "example": "test123"
-                }
-            }
-        },
-        "models.StatusApproved": {
-            "type": "object",
-            "properties": {
-                "status": {
+                },
+                "name": {
                     "type": "string",
-                    "example": "approved"
-                }
-            }
-        },
-        "models.StatusDeclined": {
-            "type": "object",
-            "properties": {
-                "status": {
+                    "example": "test task"
+                },
+                "text": {
                     "type": "string",
-                    "example": "declined"
-                }
-            }
-        },
-        "models.StatusDeleted": {
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string",
-                    "example": "deleted"
+                    "example": "this is test task 1"
                 }
             }
         },
@@ -450,6 +534,19 @@ const docTemplate = `{
                 "uuid": {
                     "type": "string",
                     "example": "eaca044f-5f02-4bc1-ba57-48845a473e42"
+                }
+            }
+        },
+        "models.UpdateTask": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "test task"
+                },
+                "text": {
+                    "type": "string",
+                    "example": "this is test task 1"
                 }
             }
         },

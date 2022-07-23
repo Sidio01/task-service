@@ -12,6 +12,7 @@ var (
 	ErrAuthFailed                       = errors.New("{\"error\": \"authorization failed, wrong token\"}")
 	ErrTokenLoginNotEqualInitiatorLogin = errors.New("{\"error\": \"token login not equal initiator login\"}")
 	ErrNotFound                         = errors.New("{\"error\": \"task id or approval login not found. please check variables\"}")
+	ErrNothingToChange                  = errors.New("name and text can't be empty strings at same time")
 )
 
 type JsonErrWrapper struct {

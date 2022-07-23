@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"log"
 	"strings"
 
 	_ "github.com/lib/pq"
@@ -113,11 +114,33 @@ func (pdb *PostgresDatabase) Run(ctx context.Context, t *models.Task) error {
 func (pdb *PostgresDatabase) Update(ctx context.Context, id, login, name, text string) error {
 	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
 	// defer cancel()
-	query := `UPDATE "tasks" SET "name" = $1, "text" = $2 WHERE "uuid" = $3 AND "login" = $4` // TODO: проверка на пустые строки в name и text
-	result, err := pdb.psqlClient.Exec(query, name, text, id, login)
+	var (
+		query  string
+		err    error
+		result sql.Result
+	)
+
+	switch {
+	case text == "" && name == "":
+		log.Println("text == \"\" && name == \"\"")
+		return e.ErrNothingToChange
+	case text == "":
+		log.Println("text == \"\"")
+		query = `UPDATE "tasks" SET "name" = $1 WHERE "uuid" = $2 AND "login" = $3`
+		result, err = pdb.psqlClient.Exec(query, name, id, login)
+	case name == "":
+		log.Println("name == \"\"")
+		query = `UPDATE "tasks" SET "text" = $1 WHERE "uuid" = $2 AND "login" = $3`
+		result, err = pdb.psqlClient.Exec(query, text, id, login)
+	default:
+		log.Println("default")
+		query = `UPDATE "tasks" SET "name" = $1, "text" = $2 WHERE "uuid" = $3 AND "login" = $4`
+		result, err = pdb.psqlClient.Exec(query, name, text, id, login)
+	}
 	if err != nil {
 		return err
 	}
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
@@ -136,6 +159,7 @@ func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error
 	if err != nil {
 		return err
 	}
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
@@ -154,6 +178,7 @@ func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLog
 	if err != nil {
 		return err
 	}
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
@@ -172,6 +197,7 @@ func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLog
 	if err != nil {
 		return err
 	}
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
@@ -179,5 +205,9 @@ func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLog
 	if rowsAffected == 0 {
 		return e.ErrNotFound
 	}
+	return nil
+}
+
+func (pdb *PostgresDatabase) checkApproval() error {
 	return nil
 }
