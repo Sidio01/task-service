@@ -14,4 +14,5 @@ type Task interface {
 	ApproveTask(ctx context.Context, login, id, approvalLogin string) error
 	DeclineTask(ctx context.Context, login, id, approvalLogin string) error
 	GrpcAuth
+	StartMessageSender(ctx context.Context)
 }

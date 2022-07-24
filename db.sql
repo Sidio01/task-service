@@ -26,6 +26,22 @@ CREATE TABLE IF NOT EXISTS approvals
         NOT VALID
 );
 
+-- Table: public.outbox
+-- DROP TABLE public.outbox;
+CREATE TABLE IF NOT EXISTS outbox
+(
+    id SERIAL PRIMARY KEY,
+    task_uuid uuid NOT NULL,
+    action_timestamp integer NOT NULL,
+    type character(10) NOT NULL,
+    value character(50) NOT NULL,
+    sent boolean,
+    CONSTRAINT task_uuid FOREIGN KEY (task_uuid)
+        REFERENCES public.tasks (uuid) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+);
+
 INSERT INTO tasks (uuid, name, text, login) VALUES
 ('437bcb56-0249-479a-b67b-7c4a56a956d8', 'test1', 'this is test task1', 'test123'),
 ('2281a27e-0ab2-4589-8b06-c4fd5dc6cd45', 'test2', 'this is test task2', 'test123');
@@ -35,3 +51,9 @@ INSERT INTO approvals (task_uuid, approval_login, n) VALUES
 ('437bcb56-0249-479a-b67b-7c4a56a956d8', 'petr', 2),
 ('2281a27e-0ab2-4589-8b06-c4fd5dc6cd45', 'test626', 1),
 ('2281a27e-0ab2-4589-8b06-c4fd5dc6cd45', 'zxvdg', 2);
+
+INSERT INTO outbox (task_uuid, action_timestamp, type, value) VALUES
+('437bcb56-0249-479a-b67b-7c4a56a956d8', 1658691169, 'run', 'test123'),
+('437bcb56-0249-479a-b67b-7c4a56a956d8', 1658691269, 'approve', 'true'),
+('2281a27e-0ab2-4589-8b06-c4fd5dc6cd45', 1658691369, 'run', 'test123'),
+('2281a27e-0ab2-4589-8b06-c4fd5dc6cd45', 1658691469, 'approve', 'false');

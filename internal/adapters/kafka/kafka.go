@@ -3,9 +3,9 @@ package kafka
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/segmentio/kafka-go"
+	"gitlab.com/g6834/team26/task/internal/domain/models"
 	"gitlab.com/g6834/team26/task/pkg/uuid"
 )
 
@@ -21,18 +21,11 @@ func New(url, topic string) (*KafkaClient, error) {
 	return &KafkaClient{KafkaConn: conn}, nil
 }
 
-func (KafkaClient *KafkaClient) ActionTask(ctx context.Context, u, t, v string) error {
+func (KafkaClient *KafkaClient) ActionTask(ctx context.Context, m models.KafkaAnalyticMessage) error {
 	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
 	// defer cancel()
 
-	actionTaskReq := &KafkaAnalyticMessage{
-		UUID:      u,
-		Timestamp: time.Now().Unix(),
-		Type:      t,
-		Value:     v,
-	}
-
-	messageData, err := json.Marshal(actionTaskReq)
+	messageData, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
@@ -55,11 +48,4 @@ func (KafkaClient *KafkaClient) Stop(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-type KafkaAnalyticMessage struct {
-	UUID      string `json:"uuid"`
-	Timestamp int64  `json:"timestamp"`
-	Type      string `json:"type"`
-	Value     string `json:"value"`
 }

@@ -33,13 +33,23 @@ func (d *DbMock) Delete(ctx context.Context, login, id string) error {
 	return args.Error(0)
 }
 
-func (d *DbMock) Approve(ctx context.Context, login, id, approvalLogin string) (string, error) {
+func (d *DbMock) Approve(ctx context.Context, login, id, approvalLogin string) error {
 	args := d.Called(ctx, login, id, approvalLogin)
-	return args.String(0), args.Error(1)
+	return args.Error(0)
 }
 
 func (d *DbMock) Decline(ctx context.Context, login, id, approvalLogin string) error {
 	args := d.Called(ctx, login, id, approvalLogin)
+	return args.Error(0)
+}
+
+func (d *DbMock) GetMessagesToSend(ctx context.Context) (map[int]models.KafkaAnalyticMessage, error) {
+	args := d.Called(ctx)
+	return args.Get(0).(map[int]models.KafkaAnalyticMessage), args.Error(1)
+}
+
+func (d *DbMock) UpdateMessageStatus(ctx context.Context, id int) error {
+	args := d.Called(ctx, id)
 	return args.Error(0)
 }
 
@@ -56,7 +66,7 @@ type AnalyticMessageSenderMock struct {
 	mock.Mock
 }
 
-func (ams *AnalyticMessageSenderMock) ActionTask(ctx context.Context, u, t, v string) error {
-	args := ams.Called(ctx, u, t, v)
+func (ams *AnalyticMessageSenderMock) ActionTask(ctx context.Context, m models.KafkaAnalyticMessage) error {
+	args := ams.Called(ctx, m)
 	return args.Error(0)
 }

@@ -55,6 +55,8 @@ func (s *Server) Port() int {
 }
 
 func (s *Server) Start() error {
+	go s.task.StartMessageSender(context.Background())
+
 	if err := s.server.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

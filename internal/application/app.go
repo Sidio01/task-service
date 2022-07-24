@@ -90,7 +90,7 @@ func Stop() {
 	_ = s.Stop(ctx)
 	_ = db.Stop(ctx)
 	_ = grpcAuth.Stop(ctx)
-	_ = grpcAnalytic.StopAnalytic(ctx)
+	// _ = grpcAnalytic.StopAnalytic(ctx)
 	_ = kafkaAnalytic.Stop(ctx)
 	l.Info().Msg("app has stopped")
 }

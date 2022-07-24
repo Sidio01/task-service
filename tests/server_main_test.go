@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -165,6 +166,7 @@ func (s *TestcontainersSuite) TestDBSelect() {
 	// s.NoError(err)
 	// client := http.Client{}
 	// client.Do(reqAuth)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	bodyTaskReq := strings.NewReader("")
 	reqTask, err := http.NewRequest("GET", "http://localhost:3000/task/v1/tasks/", bodyTaskReq)

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"strings"
+	"time"
 
 	_ "github.com/lib/pq"
 	e "gitlab.com/g6834/team26/task/internal/domain/errors"
@@ -89,7 +90,7 @@ func (pdb *PostgresDatabase) Run(ctx context.Context, t *models.Task) error {
 	}
 
 	taskQuery := `INSERT INTO "tasks" ("uuid", "name", "text", "login", "status") VALUES ($1, $2, $3, $4, $5)`
-	_, err = tx.ExecContext(ctx, taskQuery, t.UUID, t.Name, t.Text, t.InitiatorLogin, t.Status)
+	_, err = tx.Exec(taskQuery, t.UUID, t.Name, t.Text, t.InitiatorLogin, t.Status)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -97,11 +98,17 @@ func (pdb *PostgresDatabase) Run(ctx context.Context, t *models.Task) error {
 
 	for _, approval := range t.Approvals {
 		approvalsQuery := `INSERT INTO "approvals" ("task_uuid", "approval_login", "n") VALUES ($1, $2, $3)`
-		_, err = tx.ExecContext(ctx, approvalsQuery, t.UUID, approval.ApprovalLogin, approval.N)
+		_, err = tx.Exec(approvalsQuery, t.UUID, approval.ApprovalLogin, approval.N)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
+	}
+
+	err = pdb.saveMessage(tx, t.UUID, "run", t.InitiatorLogin, time.Now().Unix())
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 
 	err = tx.Commit()
@@ -154,9 +161,15 @@ func (pdb *PostgresDatabase) Update(ctx context.Context, id, login, name, text s
 func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error {
 	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
 	// defer cancel()
-	query := `DELETE FROM "tasks" WHERE "uuid" = $1 AND "login" = $2` // TODO: возможно стоит не удалять задачу, а менять статус
-	result, err := pdb.psqlClient.Exec(query, id, login)
+	tx, err := pdb.psqlClient.BeginTx(ctx, nil)
 	if err != nil {
+		return err
+	}
+
+	query := `DELETE FROM "tasks" WHERE "uuid" = $1 AND "login" = $2` // TODO: возможно стоит не удалять задачу, а менять статус
+	result, err := tx.Exec(query, id, login)
+	if err != nil {
+		tx.Rollback()
 		return err
 	}
 
@@ -168,73 +181,82 @@ func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error
 		return e.ErrNotFound
 	}
 
+	err = pdb.saveMessage(tx, id, "delete", "true", time.Now().Unix())
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLogin string) (string, error) {
+func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLogin string) error {
 	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
 	// defer cancel()
 	tx, err := pdb.psqlClient.BeginTx(ctx, nil)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	err = pdb.checkTaskStatus(id)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	err = pdb.checkApproval(id, approvalLogin)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	query := `UPDATE "approvals" SET "approved" = $1 WHERE "task_uuid" = $2 AND "approval_login" = $3`
 	result, err := tx.Exec(query, true, id, approvalLogin)
 	if err != nil {
 		tx.Rollback()
-		return "", err
+		return err
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return "", err
+		return err
 	}
 	if rowsAffected == 0 {
-		return "", e.ErrNotFound
+		return e.ErrNotFound
 	}
 
-	currPosition, err := pdb.getCurrentApprovalPosition(id, approvalLogin)
+	currPosition := pdb.getCurrentApprovalPosition(id, approvalLogin)
+	maxPosition := pdb.getMaxApprovalPosition(id)
+
+	// log.Println("currPosition -", currPosition)
+	// log.Println("maxPosition -", maxPosition)
+
+	err = pdb.saveMessage(tx, id, "approve", "true", time.Now().Unix())
 	if err != nil {
-		return "", err
+		tx.Rollback()
+		return err
 	}
-
-	maxPosition, err := pdb.getMaxApprovalPosition(id)
-	if err != nil {
-		return "", err
-	}
-
-	log.Println("currPosition -", currPosition)
-	log.Println("maxPosition -", maxPosition)
 
 	if currPosition == maxPosition {
 		err = pdb.changeTaskStatus(tx, id, "completed")
 		if err != nil {
 			tx.Rollback()
-			return "", err
+			return err
 		}
-		err = tx.Commit()
+		err = pdb.saveMessage(tx, id, "complete", "true", time.Now().Unix())
 		if err != nil {
-			return "", err
+			tx.Rollback()
+			return err
 		}
-		return "completed", nil
-	} else {
-		err = tx.Commit()
-		if err != nil {
-			return "", err
-		}
-		return "", nil
 	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLogin string) error {
@@ -271,6 +293,12 @@ func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLog
 	}
 
 	err = pdb.changeTaskStatus(tx, id, "declined")
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	err = pdb.saveMessage(tx, id, "approve", "false", time.Now().Unix())
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -316,18 +344,61 @@ func (pdb *PostgresDatabase) changeTaskStatus(tx *sql.Tx, id, status string) err
 	return nil
 }
 
-func (pdb *PostgresDatabase) getCurrentApprovalPosition(id, approvalLogin string) (int, error) {
+func (pdb *PostgresDatabase) getCurrentApprovalPosition(id, approvalLogin string) int {
 	var currentApprovalPosition int
 	maxApprovalQuery := `SELECT "n" FROM "approvals" WHERE "task_uuid" = $1 AND "approval_login" = $2 ORDER BY "n" DESC LIMIT 1`
 	maxApprovalRow := pdb.psqlClient.QueryRow(maxApprovalQuery, id, approvalLogin)
 	maxApprovalRow.Scan(&currentApprovalPosition)
-	return currentApprovalPosition, nil
+	return currentApprovalPosition
 }
 
-func (pdb *PostgresDatabase) getMaxApprovalPosition(id string) (int, error) {
+func (pdb *PostgresDatabase) getMaxApprovalPosition(id string) int {
 	var maxApprovalPosition int
 	maxApprovalQuery := `SELECT "n" FROM "approvals" WHERE "task_uuid" = $1 ORDER BY "n" DESC LIMIT 1`
 	maxApprovalRow := pdb.psqlClient.QueryRow(maxApprovalQuery, id)
 	maxApprovalRow.Scan(&maxApprovalPosition)
-	return maxApprovalPosition, nil
+	return maxApprovalPosition
+}
+
+func (pdb *PostgresDatabase) saveMessage(tx *sql.Tx, id, t, v string, aT int64) error {
+	query := `INSERT INTO "outbox" ("task_uuid", "action_timestamp", "type", "value") VALUES ($1, $2, $3, $4)`
+	_, err := tx.Exec(query, id, aT, t, v)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (pdb *PostgresDatabase) GetMessagesToSend(ctx context.Context) (map[int]models.KafkaAnalyticMessage, error) {
+	messages := make(map[int]models.KafkaAnalyticMessage)
+
+	getMessagesQuery := `SELECT "id", "task_uuid", "action_timestamp", "type", "value" FROM "outbox" WHERE "sent" IS NULL`
+	messagesRows, err := pdb.psqlClient.Query(getMessagesQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer messagesRows.Close()
+
+	for messagesRows.Next() {
+		var message models.KafkaAnalyticMessage
+		var id int
+		err := messagesRows.Scan(&id, &message.UUID, &message.Timestamp, &message.Type, &message.Value)
+		if err != nil {
+			return nil, err
+		}
+		message.Type = strings.TrimSpace(message.Type)
+		message.Value = strings.TrimSpace(message.Value)
+		messages[id] = message
+	}
+
+	return messages, nil
+}
+
+func (pdb *PostgresDatabase) UpdateMessageStatus(ctx context.Context, id int) error {
+	query := `UPDATE "outbox" SET "sent" = $1 WHERE "id" = $2`
+	_, err := pdb.psqlClient.Exec(query, true, id)
+	if err != nil {
+		return err
+	}
+	return nil
 }

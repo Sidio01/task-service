@@ -11,6 +11,8 @@ type TaskDB interface {
 	Run(ctx context.Context, t *models.Task) error
 	Update(ctx context.Context, id, login, name, text string) error
 	Delete(ctx context.Context, login, id string) error
-	Approve(ctx context.Context, login, id, approvalLogin string) (string, error)
+	Approve(ctx context.Context, login, id, approvalLogin string) error
 	Decline(ctx context.Context, login, id, approvalLogin string) error
+	GetMessagesToSend(ctx context.Context) (map[int]models.KafkaAnalyticMessage, error)
+	UpdateMessageStatus(ctx context.Context, id int) error
 }
