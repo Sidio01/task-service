@@ -2,7 +2,7 @@ package task
 
 import (
 	"context"
-	"log"
+	"time"
 
 	"gitlab.com/g6834/team26/task/internal/domain/models"
 	"gitlab.com/g6834/team26/task/internal/ports"
@@ -36,12 +36,6 @@ func (s *Service) RunTask(ctx context.Context, createdTask *models.Task) error {
 	if err != nil {
 		return err
 	}
-
-	// err = s.analyticSender.ActionTask(ctx, createdTask.UUID, "run", createdTask.InitiatorLogin) // TODO: отправлять сообщение в отдельной горутине
-	// if err != nil {
-	// 	return err
-	// }
-
 	return nil
 }
 
@@ -58,39 +52,14 @@ func (s *Service) DeleteTask(ctx context.Context, login, id string) error { // T
 	if err != nil {
 		return err
 	}
-
-	// err = s.analyticSender.ActionTask(ctx, id, "delete", "true") // TODO: отправлять сообщение в отдельной горутине
-	// if err != nil {
-	// 	return err
-	// }
-
 	return nil
 }
 
 func (s *Service) ApproveTask(ctx context.Context, login, id, approvalLogin string) error { // TODO: отправлять письмо следующему согласующему
-	status, err := s.db.Approve(ctx, login, id, approvalLogin)
+	err := s.db.Approve(ctx, login, id, approvalLogin)
 	if err != nil {
 		return err
 	}
-	log.Println(status)
-
-	// switch {
-	// case status == "":
-	// 	err = s.analyticSender.ActionTask(ctx, id, "approve", "true") // TODO: отправлять сообщение в отдельной горутине
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// case status == "completed":
-	// 	err = s.analyticSender.ActionTask(ctx, id, "approve", "true") // TODO: отправлять сообщение в отдельной горутине
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	err = s.analyticSender.ActionTask(ctx, id, "completed", "true") // TODO: отправлять сообщение в отдельной горутине
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
 	return nil
 }
 
@@ -99,12 +68,6 @@ func (s *Service) DeclineTask(ctx context.Context, login, id, approvalLogin stri
 	if err != nil {
 		return err
 	}
-
-	// err = s.analyticSender.ActionTask(ctx, id, "approve", "false") // TODO: отправлять сообщение в отдельной горутине
-	// if err != nil {
-	// 	return err
-	// }
-
 	return nil
 }
 
@@ -114,4 +77,24 @@ func (s *Service) Validate(ctx context.Context, tokens ports.TokenPair) (*api.Au
 		return nil, err
 	}
 	return grpcResponse, nil
+}
+
+func (s *Service) StartMessageSender(ctx context.Context) {
+	for {
+		// log.Println("sleeping for 60 seconds")
+		time.Sleep(60 * time.Second)
+		// log.Println("looking for messages to send")
+		messages, _ := s.db.GetMessagesToSend(ctx)
+		// log.Println(messages)
+		for id, message := range messages {
+			err := s.analyticSender.ActionTask(ctx, message)
+			if err != nil {
+				continue
+			}
+			s.db.UpdateMessageStatus(ctx, id)
+			if err != nil {
+				continue
+			}
+		}
+	}
 }

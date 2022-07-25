@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/g6834/team26/task/internal/adapters/grpc"
 	"gitlab.com/g6834/team26/task/internal/adapters/http"
+	"gitlab.com/g6834/team26/task/internal/adapters/kafka"
 	"gitlab.com/g6834/team26/task/internal/adapters/postgres"
 	"gitlab.com/g6834/team26/task/internal/domain/task"
 	"gitlab.com/g6834/team26/task/pkg/config"
@@ -16,11 +17,12 @@ import (
 )
 
 var (
-	s            *http.Server
-	l            *zerolog.Logger
-	db           *postgres.PostgresDatabase
-	grpcAuth     *grpc.GrpcAuth
-	grpcAnalytic *grpc.GrpcAnalytic
+	s             *http.Server
+	l             *zerolog.Logger
+	db            *postgres.PostgresDatabase
+	grpcAuth      *grpc.GrpcAuth
+	grpcAnalytic  *grpc.GrpcAnalytic
+	kafkaAnalytic *kafka.KafkaClient
 )
 
 func Start(ctx context.Context) {
@@ -49,13 +51,19 @@ func Start(ctx context.Context) {
 		os.Exit(1)
 	}
 
-	grpcAnalytic, err = grpc.NewAnalytic(c.Server.GRPCAnalytic)
+	// grpcAnalytic, err = grpc.NewAnalytic(c.Server.GRPCAnalytic)
+	// if err != nil {
+	// 	l.Error().Msgf("grpc analytic client init failed: %s", err)
+	// 	os.Exit(1)
+	// }
+
+	kafkaAnalytic, err = kafka.New(c.Server.KafkaUrl, c.Server.KafkaAnalyticTopic)
 	if err != nil {
-		l.Error().Msgf("grpc analytic client init failed: %s", err)
+		l.Error().Msgf("kafka analytic client init failed: %s", err)
 		os.Exit(1)
 	}
 
-	taskS := task.New(db, grpcAuth, grpcAnalytic)
+	taskS := task.New(db, grpcAuth, kafkaAnalytic)
 
 	s, err = http.New(l, taskS, c)
 	if err != nil {
@@ -82,6 +90,7 @@ func Stop() {
 	_ = s.Stop(ctx)
 	_ = db.Stop(ctx)
 	_ = grpcAuth.Stop(ctx)
-	_ = grpcAnalytic.StopAnalytic(ctx)
+	// _ = grpcAnalytic.StopAnalytic(ctx)
+	_ = kafkaAnalytic.Stop(ctx)
 	l.Info().Msg("app has stopped")
 }

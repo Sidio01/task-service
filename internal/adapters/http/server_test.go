@@ -27,10 +27,10 @@ import (
 type authTestSuite struct {
 	suite.Suite
 
-	srv       *h.Server
-	db        *mocks.DbMock
-	gAuth     *mocks.GrpcAuthMock
-	gAnalytic *mocks.GrpcAnalyticMock
+	srv            *h.Server
+	db             *mocks.DbMock
+	gAuth          *mocks.GrpcAuthMock
+	analyticSender *mocks.AnalyticMessageSenderMock
 }
 
 func TestAuthTestSuite(t *testing.T) {
@@ -48,9 +48,9 @@ func (s *authTestSuite) SetupTest() {
 
 	s.db = new(mocks.DbMock)
 	s.gAuth = new(mocks.GrpcAuthMock)
-	s.gAnalytic = new(mocks.GrpcAnalyticMock)
+	s.analyticSender = new(mocks.AnalyticMessageSenderMock)
 
-	taskS := task.New(s.db, s.gAuth, s.gAnalytic)
+	taskS := task.New(s.db, s.gAuth, s.analyticSender)
 
 	s.srv, err = h.New(l, taskS, c)
 	if err != nil {
@@ -76,6 +76,8 @@ func (s *authTestSuite) TestListHandlerSuccess() {
 			N:        2,
 			Sent:     sql.NullBool{Valid: true, Bool: false},
 			Approved: sql.NullBool{Valid: false, Bool: false}}}}}, nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -115,6 +117,8 @@ func (s *authTestSuite) TestListHandlerForbidden() {
 			N:        2,
 			Sent:     sql.NullBool{Valid: true, Bool: false},
 			Approved: sql.NullBool{Valid: false, Bool: false}}}}}, nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -146,6 +150,8 @@ func (s *authTestSuite) TestListHandlerForbidden() {
 func (s *authTestSuite) TestRunHandlerSuccess() {
 	// ctx := context.Background()
 	s.db.On("Run", mock.Anything, mock.Anything).Return(nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -155,7 +161,7 @@ func (s *authTestSuite) TestRunHandlerSuccess() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	bodyReq := strings.NewReader("{\"approvalLogins\": [\"test626\",\"zxcvb\"],\"initiatorLogin\": \"test123\"}")
 
@@ -178,6 +184,8 @@ func (s *authTestSuite) TestRunHandlerSuccess() {
 func (s *authTestSuite) TestRunHandlerBadRequest() {
 	// ctx := context.Background()
 	s.db.On("Run", mock.Anything, mock.Anything).Return(e.ErrInvalidJsonBody)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -187,7 +195,7 @@ func (s *authTestSuite) TestRunHandlerBadRequest() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	bodyReq := strings.NewReader("{\"approvalLogins\": {\"test626\": \"\", \"zxcvb\": \"\"},\"initiatorLogin\": \"test123\"}")
 
@@ -210,6 +218,8 @@ func (s *authTestSuite) TestRunHandlerBadRequest() {
 func (s *authTestSuite) TestRunHandlerForbidden() {
 	// ctx := context.Background()
 	s.db.On("Run", mock.Anything, mock.Anything).Return(nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -219,7 +229,7 @@ func (s *authTestSuite) TestRunHandlerForbidden() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: false, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, e.ErrAuthFailed)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	bodyReq := strings.NewReader("{\"approvalLogins\": [\"test626\",\"zxcvb\"],\"initiatorLogin\": \"test123\"}")
 
@@ -239,10 +249,11 @@ func (s *authTestSuite) TestRunHandlerForbidden() {
 	response.Body.Close()
 }
 
-// TODO: добавить тесты на Update
 func (s *authTestSuite) TestUpdateHandlerSuccess() {
 	// ctx := context.Background()
 	s.db.On("Update", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -252,7 +263,7 @@ func (s *authTestSuite) TestUpdateHandlerSuccess() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	bodyReq := strings.NewReader("{\"name\": \"name update\", \"text\": \"text update\"}")
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -276,6 +287,8 @@ func (s *authTestSuite) TestUpdateHandlerSuccess() {
 func (s *authTestSuite) TestUpdateHandlerBadRequest() {
 	// ctx := context.Background()
 	s.db.On("Update", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(e.ErrInvalidJsonBody)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -285,7 +298,7 @@ func (s *authTestSuite) TestUpdateHandlerBadRequest() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	bodyReq := strings.NewReader("{\"name\": \"name update\", \"text\": \"text update\"}")
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -309,6 +322,8 @@ func (s *authTestSuite) TestUpdateHandlerBadRequest() {
 func (s *authTestSuite) TestUpdateHandlerForbidden() {
 	// ctx := context.Background()
 	s.db.On("Update", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -318,7 +333,7 @@ func (s *authTestSuite) TestUpdateHandlerForbidden() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: false, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, e.ErrAuthFailed)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	bodyReq := strings.NewReader("{\"name\": \"name update\", \"text\": \"text update\"}")
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -341,7 +356,9 @@ func (s *authTestSuite) TestUpdateHandlerForbidden() {
 
 func (s *authTestSuite) TestApproveHandlerSuccess() {
 	// ctx := context.Background()
-	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return("", nil)
+	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -351,7 +368,7 @@ func (s *authTestSuite) TestApproveHandlerSuccess() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -375,7 +392,9 @@ func (s *authTestSuite) TestApproveHandlerSuccess() {
 
 func (s *authTestSuite) TestApproveHandlerForbidden() {
 	// ctx := context.Background()
-	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return("", nil)
+	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -385,7 +404,7 @@ func (s *authTestSuite) TestApproveHandlerForbidden() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: false, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, e.ErrAuthFailed)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -409,7 +428,9 @@ func (s *authTestSuite) TestApproveHandlerForbidden() {
 
 func (s *authTestSuite) TestApproveHandlerNotFound() {
 	// ctx := context.Background()
-	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return("", e.ErrNotFound)
+	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(e.ErrNotFound)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -419,7 +440,7 @@ func (s *authTestSuite) TestApproveHandlerNotFound() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -444,6 +465,8 @@ func (s *authTestSuite) TestApproveHandlerNotFound() {
 func (s *authTestSuite) TestDeclineHandlerSuccess() {
 	// ctx := context.Background()
 	s.db.On("Decline", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -453,7 +476,7 @@ func (s *authTestSuite) TestDeclineHandlerSuccess() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -478,6 +501,8 @@ func (s *authTestSuite) TestDeclineHandlerSuccess() {
 func (s *authTestSuite) TestDeclineHandlerForbidden() {
 	// ctx := context.Background()
 	s.db.On("Decline", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -487,7 +512,7 @@ func (s *authTestSuite) TestDeclineHandlerForbidden() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: false, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, e.ErrAuthFailed)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -512,6 +537,8 @@ func (s *authTestSuite) TestDeclineHandlerForbidden() {
 func (s *authTestSuite) TestDeclineHandlerNotFound() {
 	// ctx := context.Background()
 	s.db.On("Decline", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(e.ErrNotFound)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -521,7 +548,7 @@ func (s *authTestSuite) TestDeclineHandlerNotFound() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	approvalLogin := "test626"
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
@@ -546,6 +573,8 @@ func (s *authTestSuite) TestDeclineHandlerNotFound() {
 func (s *authTestSuite) TestDeleteHandlerSuccess() {
 	// ctx := context.Background()
 	s.db.On("Delete", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb").Return(nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -555,7 +584,7 @@ func (s *authTestSuite) TestDeleteHandlerSuccess() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
 	bodyReq := strings.NewReader("")
@@ -579,6 +608,8 @@ func (s *authTestSuite) TestDeleteHandlerSuccess() {
 func (s *authTestSuite) TestDeleteHandlerForbidden() {
 	// ctx := context.Background()
 	s.db.On("Delete", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb").Return(nil)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -588,7 +619,7 @@ func (s *authTestSuite) TestDeleteHandlerForbidden() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: false, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, e.ErrAuthFailed)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
 	bodyReq := strings.NewReader("")
@@ -612,6 +643,8 @@ func (s *authTestSuite) TestDeleteHandlerForbidden() {
 func (s *authTestSuite) TestDeleteHandlerNotFound() {
 	// ctx := context.Background()
 	s.db.On("Delete", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb").Return(e.ErrNotFound)
+	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
+	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
 	s.gAuth.On("Validate", mock.Anything, ports.TokenPair{
 		AccessToken: ports.TokenPairVal{
 			Value: "access_token",
@@ -621,7 +654,7 @@ func (s *authTestSuite) TestDeleteHandlerNotFound() {
 			Value: "refresh_token",
 			// Expires: time.Now().Add(time.Hour),
 		}}).Return(&api.AuthResponse{Result: true, Login: "test123", AccessToken: new(api.Token), RefreshToken: new(api.Token)}, nil)
-	s.gAnalytic.On("ActionTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.analyticSender.On("ActionTask", mock.Anything, mock.Anything).Return(nil)
 
 	uuid := "66f5b904-3f54-4da4-ba74-6dfdf8d72efb"
 	bodyReq := strings.NewReader("")
