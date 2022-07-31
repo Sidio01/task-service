@@ -126,7 +126,7 @@ func (s *Service) GetResultOfEmailSending(ctx context.Context) {
 }
 
 func (s *Service) StartEmailSender(ctx context.Context) {
-	s.emailSender.StartEmailWorkers()
+	s.emailSender.StartEmailWorkers(ctx)
 	go s.GetResultOfEmailSending(ctx)
 
 	for {

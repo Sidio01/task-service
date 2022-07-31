@@ -13,28 +13,21 @@ type EmailToStdOut struct {
 	EmailChan     chan models.Email
 	ResultChan    chan map[models.Email]bool
 	RateLimitChan chan struct{}
-	ctx           context.Context
-	cancelFunc    context.CancelFunc
 	wg            *sync.WaitGroup
 	nWorkers      int
 }
 
 func New(ctx context.Context, nWorkers, nRate int) (*EmailToStdOut, error) {
-	newCtx, cancelFunc := context.WithCancel(ctx)
 	return &EmailToStdOut{
-
 		EmailChan:     make(chan models.Email, nWorkers),
 		ResultChan:    make(chan map[models.Email]bool, nWorkers),
 		RateLimitChan: make(chan struct{}, nRate),
-		ctx:           newCtx,
-		cancelFunc:    cancelFunc,
 		nWorkers:      nWorkers,
 		wg:            &sync.WaitGroup{},
 	}, nil
 }
 
 func (etso *EmailToStdOut) Stop() error {
-	etso.cancelFunc()
 	etso.wg.Wait()
 	return nil
 }
@@ -56,24 +49,24 @@ func (etso *EmailToStdOut) GetEmailResultChan() chan map[models.Email]bool {
 	return etso.ResultChan
 }
 
-func (etso *EmailToStdOut) StartEmailWorkers() {
+func (etso *EmailToStdOut) StartEmailWorkers(ctx context.Context) {
 	for i := 0; i < etso.nWorkers; i++ {
 		etso.wg.Add(1)
-		go etso.EmailWorker()
+		go etso.EmailWorker(ctx)
 	}
 }
 
-func (etso *EmailToStdOut) EmailWorker() {
+func (etso *EmailToStdOut) EmailWorker(ctx context.Context) {
 	defer etso.wg.Done()
 	log.Println("Worker started")
 	for {
 		select {
-		case <-etso.ctx.Done():
+		case <-ctx.Done():
 			log.Println("Recieved signal to stop worker")
 			return
 		case etso.RateLimitChan <- struct{}{}:
 			select {
-			case <-etso.ctx.Done():
+			case <-ctx.Done():
 				log.Println("Recieved signal to stop worker")
 				return
 			case email := <-etso.EmailChan:
