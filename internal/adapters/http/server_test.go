@@ -31,6 +31,7 @@ type authTestSuite struct {
 	db             *mocks.DbMock
 	gAuth          *mocks.GrpcAuthMock
 	analyticSender *mocks.AnalyticMessageSenderMock
+	emailSender    *mocks.EmailSenderMock
 }
 
 func TestAuthTestSuite(t *testing.T) {
@@ -49,8 +50,9 @@ func (s *authTestSuite) SetupTest() {
 	s.db = new(mocks.DbMock)
 	s.gAuth = new(mocks.GrpcAuthMock)
 	s.analyticSender = new(mocks.AnalyticMessageSenderMock)
+	s.emailSender = new(mocks.EmailSenderMock)
 
-	taskS := task.New(s.db, s.gAuth, s.analyticSender)
+	taskS := task.New(s.db, s.gAuth, s.analyticSender, s.emailSender)
 
 	s.srv, err = h.New(l, taskS, c)
 	if err != nil {
@@ -58,7 +60,7 @@ func (s *authTestSuite) SetupTest() {
 		s.Suite.T().FailNow()
 	}
 
-	go s.srv.Start()
+	go s.srv.Start(context.Background())
 }
 
 func (s *authTestSuite) TearDownTest() {
@@ -67,6 +69,8 @@ func (s *authTestSuite) TearDownTest() {
 
 func (s *authTestSuite) TestListHandlerSuccess() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("List", mock.Anything, "test123").Return([]*models.Task{&models.Task{UUID: "66f5b904-3f54-4da4-ba74-6dfdf8d72efb",
 		Name:           "test",
 		Text:           "this is test task",
@@ -108,6 +112,8 @@ func (s *authTestSuite) TestListHandlerSuccess() {
 
 func (s *authTestSuite) TestListHandlerForbidden() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("List", mock.Anything, "test123").Return([]*models.Task{&models.Task{UUID: "66f5b904-3f54-4da4-ba74-6dfdf8d72efb",
 		Name:           "test",
 		Text:           "this is test task",
@@ -149,6 +155,8 @@ func (s *authTestSuite) TestListHandlerForbidden() {
 
 func (s *authTestSuite) TestRunHandlerSuccess() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Run", mock.Anything, mock.Anything).Return(nil)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -183,6 +191,8 @@ func (s *authTestSuite) TestRunHandlerSuccess() {
 
 func (s *authTestSuite) TestRunHandlerBadRequest() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Run", mock.Anything, mock.Anything).Return(e.ErrInvalidJsonBody)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -217,6 +227,8 @@ func (s *authTestSuite) TestRunHandlerBadRequest() {
 
 func (s *authTestSuite) TestRunHandlerForbidden() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Run", mock.Anything, mock.Anything).Return(nil)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -251,6 +263,8 @@ func (s *authTestSuite) TestRunHandlerForbidden() {
 
 func (s *authTestSuite) TestUpdateHandlerSuccess() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Update", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -286,6 +300,8 @@ func (s *authTestSuite) TestUpdateHandlerSuccess() {
 
 func (s *authTestSuite) TestUpdateHandlerBadRequest() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Update", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(e.ErrInvalidJsonBody)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -321,6 +337,8 @@ func (s *authTestSuite) TestUpdateHandlerBadRequest() {
 
 func (s *authTestSuite) TestUpdateHandlerForbidden() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Update", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -356,6 +374,8 @@ func (s *authTestSuite) TestUpdateHandlerForbidden() {
 
 func (s *authTestSuite) TestApproveHandlerSuccess() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(nil)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -392,6 +412,8 @@ func (s *authTestSuite) TestApproveHandlerSuccess() {
 
 func (s *authTestSuite) TestApproveHandlerForbidden() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(nil)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -428,6 +450,8 @@ func (s *authTestSuite) TestApproveHandlerForbidden() {
 
 func (s *authTestSuite) TestApproveHandlerNotFound() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Approve", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(e.ErrNotFound)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -464,6 +488,8 @@ func (s *authTestSuite) TestApproveHandlerNotFound() {
 
 func (s *authTestSuite) TestDeclineHandlerSuccess() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Decline", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(nil)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -500,6 +526,8 @@ func (s *authTestSuite) TestDeclineHandlerSuccess() {
 
 func (s *authTestSuite) TestDeclineHandlerForbidden() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Decline", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(nil)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -536,6 +564,8 @@ func (s *authTestSuite) TestDeclineHandlerForbidden() {
 
 func (s *authTestSuite) TestDeclineHandlerNotFound() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Decline", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb", "test626").Return(e.ErrNotFound)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -572,6 +602,8 @@ func (s *authTestSuite) TestDeclineHandlerNotFound() {
 
 func (s *authTestSuite) TestDeleteHandlerSuccess() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Delete", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb").Return(nil)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -607,6 +639,8 @@ func (s *authTestSuite) TestDeleteHandlerSuccess() {
 
 func (s *authTestSuite) TestDeleteHandlerForbidden() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Delete", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb").Return(nil)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)
@@ -642,6 +676,8 @@ func (s *authTestSuite) TestDeleteHandlerForbidden() {
 
 func (s *authTestSuite) TestDeleteHandlerNotFound() {
 	// ctx := context.Background()
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 	s.db.On("Delete", mock.Anything, "test123", "66f5b904-3f54-4da4-ba74-6dfdf8d72efb").Return(e.ErrNotFound)
 	s.db.On("GetMessagesToSend", mock.Anything).Return(map[int]models.KafkaAnalyticMessage{}, nil)
 	s.db.On("UpdateMessageStatus", mock.Anything, mock.Anything).Return(nil)

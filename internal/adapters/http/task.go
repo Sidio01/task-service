@@ -1,7 +1,6 @@
 package http
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -11,7 +10,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	e "gitlab.com/g6834/team26/task/internal/domain/errors"
 	"gitlab.com/g6834/team26/task/internal/domain/models"
-	"gitlab.com/g6834/team26/task/pkg/uuid"
 )
 
 // @title Сервис создания и согласования задач
@@ -105,33 +103,14 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: убрать из контроллера в метод структуры
-	if login != runnedTask.InitiatorLogin {
-		s.logger.Error().Msg(e.ErrTokenLoginNotEqualInitiatorLogin.Error())
-		http.Error(w, e.ErrTokenLoginNotEqualInitiatorLogin.Error(), http.StatusForbidden)
+	createdTask, err := runnedTask.CreateTask(login)
+	if err != nil {
+		s.logger.Error().Msg(err.Error())
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 
-	approvals := make([]*models.Approval, len(runnedTask.ApprovalLogins))
-	for idx, al := range runnedTask.ApprovalLogins {
-		approvals[idx] = &models.Approval{
-			Approved:      sql.NullBool{Valid: false, Bool: false},
-			Sent:          sql.NullBool{Valid: false, Bool: false},
-			N:             idx + 1,
-			ApprovalLogin: al,
-		}
-	}
-
-	createdTask := models.Task{
-		UUID:           uuid.GenUUID(),
-		InitiatorLogin: runnedTask.InitiatorLogin,
-		Name:           runnedTask.Name,
-		Text:           runnedTask.Text,
-		Status:         "created",
-		Approvals:      approvals,
-	}
-
-	err = s.task.RunTask(ctx, &createdTask)
+	err = s.task.RunTask(ctx, createdTask)
 	if err != nil {
 		s.logger.Error().Msg(err.Error())
 		http.Error(w, e.JsonErrWrapper{E: err.Error()}.Error(), http.StatusBadRequest)
