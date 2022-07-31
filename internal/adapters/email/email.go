@@ -29,6 +29,7 @@ func New(ctx context.Context, nWorkers, nRate int) (*EmailToStdOut, error) {
 
 func (etso *EmailToStdOut) Stop() error {
 	etso.wg.Wait()
+	close(etso.ResultChan)
 	return nil
 }
 
@@ -58,16 +59,16 @@ func (etso *EmailToStdOut) StartEmailWorkers(ctx context.Context) {
 
 func (etso *EmailToStdOut) EmailWorker(ctx context.Context) {
 	defer etso.wg.Done()
-	log.Println("Worker started")
+	// log.Println("Worker started")
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Recieved signal to stop worker")
+			// log.Println("Recieved signal to stop worker")
 			return
 		case etso.RateLimitChan <- struct{}{}:
 			select {
 			case <-ctx.Done():
-				log.Println("Recieved signal to stop worker")
+				// log.Println("Recieved signal to stop worker")
 				return
 			case email := <-etso.EmailChan:
 				err := etso.SendEmail(email)

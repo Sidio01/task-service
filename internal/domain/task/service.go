@@ -2,7 +2,7 @@ package task
 
 import (
 	"context"
-	"log"
+	"sync"
 	"time"
 
 	"gitlab.com/g6834/team26/task/internal/domain/models"
@@ -15,6 +15,7 @@ type Service struct {
 	grpcAuth       ports.GrpcAuth
 	analyticSender ports.TaskAnalyticSender
 	emailSender    ports.EmailSender
+	wg             *sync.WaitGroup
 }
 
 func New(db ports.TaskDB, grpcAuth ports.GrpcAuth, analyticSender ports.TaskAnalyticSender, emailSender ports.EmailSender) *Service {
@@ -23,7 +24,13 @@ func New(db ports.TaskDB, grpcAuth ports.GrpcAuth, analyticSender ports.TaskAnal
 		grpcAuth:       grpcAuth,
 		analyticSender: analyticSender,
 		emailSender:    emailSender,
+		wg:             &sync.WaitGroup{},
 	}
+}
+
+func (s *Service) Stop() error {
+	s.wg.Wait()
+	return nil
 }
 
 func (s *Service) ListTasks(ctx context.Context, login string) ([]*models.Task, error) {
@@ -103,30 +110,25 @@ func (s *Service) StartMessageSender(ctx context.Context) {
 }
 
 func (s *Service) GetResultOfEmailSending(ctx context.Context) {
-	log.Println("Reader Started!!!")
+	defer s.wg.Done()
+	// log.Println("Reader Started!!!")
 	resChan := s.emailSender.GetEmailResultChan()
-	// TODO: обработать все значения перед остановкой приложения
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("Recieved signal to stop reader!!!")
-			return
-		case result, ok := <-resChan:
-			if ok {
-				log.Printf("Get result of sending - %v", result)
-				for email, res := range result {
-					err := s.db.ChangeEmailStatusAndSendMessage(ctx, email, res)
-					if err != nil {
-						continue
-					}
-				}
+	for result := range resChan {
+		// log.Printf("Get result of sending - %v", result)
+		// time.Sleep(5 * time.Second)
+		for email, res := range result {
+			err := s.db.ChangeEmailStatusAndSendMessage(ctx, email, res)
+			if err != nil {
+				continue
 			}
 		}
 	}
+	// log.Println("result channel closed")
 }
 
 func (s *Service) StartEmailSender(ctx context.Context) {
 	s.emailSender.StartEmailWorkers(ctx)
+	s.wg.Add(1)
 	go s.GetResultOfEmailSending(ctx)
 
 	for {

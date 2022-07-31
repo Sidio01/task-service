@@ -20,6 +20,7 @@ import (
 var (
 	s             *http.Server
 	l             *zerolog.Logger
+	taskService   *task.Service
 	db            *postgres.PostgresDatabase
 	grpcAuth      *grpc.GrpcAuth
 	kafkaAnalytic *kafka.KafkaClient
@@ -71,9 +72,9 @@ func Start(ctx context.Context) {
 		os.Exit(1)
 	}
 
-	taskS := task.New(db, grpcAuth, kafkaAnalytic, emailSender)
+	taskService = task.New(db, grpcAuth, kafkaAnalytic, emailSender)
 
-	s, err = http.New(l, taskS, c)
+	s, err = http.New(l, taskService, c)
 	if err != nil {
 		l.Error().Msgf("http server creating failed: %s", err)
 		os.Exit(1)
@@ -95,8 +96,9 @@ func Start(ctx context.Context) {
 func Stop(ctx context.Context) {
 	// ctx := context.Background()
 
-	_ = s.Stop(ctx)
 	_ = emailSender.Stop()
+	_ = taskService.Stop()
+	_ = s.Stop(ctx)
 	_ = db.Stop(ctx)
 	_ = grpcAuth.Stop(ctx)
 	// _ = grpcAnalytic.StopAnalytic(ctx)

@@ -16,4 +16,5 @@ type Task interface {
 	GrpcAuth
 	StartMessageSender(ctx context.Context)
 	StartEmailSender(ctx context.Context)
+	Stop() error
 }
