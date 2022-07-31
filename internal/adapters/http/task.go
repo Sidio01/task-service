@@ -105,6 +105,7 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: убрать из контроллера в метод структуры
 	if login != runnedTask.InitiatorLogin {
 		s.logger.Error().Msg(e.ErrTokenLoginNotEqualInitiatorLogin.Error())
 		http.Error(w, e.ErrTokenLoginNotEqualInitiatorLogin.Error(), http.StatusForbidden)

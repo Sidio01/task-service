@@ -13,5 +13,5 @@ func main() {
 	defer cancel()
 	go application.Start(ctx)
 	<-ctx.Done()
-	application.Stop()
+	application.Stop(ctx)
 }

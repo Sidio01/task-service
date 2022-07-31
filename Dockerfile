@@ -16,6 +16,8 @@ ENV PG_URL="postgres://team26:mNgd2ITbhVGd@91.185.93.23:5432/team26"
 ENV JSON_DB_FILE="db.jsonl"
 ENV KAFKA_URL="91.185.95.87:9094"
 ENV KAFKA_ANALYTIC_TOPIC="team26-analytic"
+ENV EMAIL_WORKERS=5
+ENV EMAIL_RATE_LIMIT=3
 
 COPY --from=builder /app/application /app/application
 CMD ["/app/application"]

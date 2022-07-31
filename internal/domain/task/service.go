@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"gitlab.com/g6834/team26/task/internal/domain/models"
@@ -13,13 +14,15 @@ type Service struct {
 	db             ports.TaskDB
 	grpcAuth       ports.GrpcAuth
 	analyticSender ports.TaskAnalyticSender
+	emailSender    ports.EmailSender
 }
 
-func New(db ports.TaskDB, grpcAuth ports.GrpcAuth, analyticSender ports.TaskAnalyticSender) *Service {
+func New(db ports.TaskDB, grpcAuth ports.GrpcAuth, analyticSender ports.TaskAnalyticSender, emailSender ports.EmailSender) *Service {
 	return &Service{
 		db:             db,
 		grpcAuth:       grpcAuth,
 		analyticSender: analyticSender,
+		emailSender:    emailSender,
 	}
 }
 
@@ -31,7 +34,7 @@ func (s *Service) ListTasks(ctx context.Context, login string) ([]*models.Task, 
 	return t, nil
 }
 
-func (s *Service) RunTask(ctx context.Context, createdTask *models.Task) error { // TODO: отправлять письмо первому согласующему
+func (s *Service) RunTask(ctx context.Context, createdTask *models.Task) error {
 	err := s.db.Run(ctx, createdTask)
 	if err != nil {
 		return err
@@ -47,7 +50,7 @@ func (s *Service) UpdateTask(ctx context.Context, id, login, name, text string) 
 	return nil
 }
 
-func (s *Service) DeleteTask(ctx context.Context, login, id string) error { // TODO: отправлять письма всем участникам об отмене операции
+func (s *Service) DeleteTask(ctx context.Context, login, id string) error {
 	err := s.db.Delete(ctx, login, id)
 	if err != nil {
 		return err
@@ -55,7 +58,7 @@ func (s *Service) DeleteTask(ctx context.Context, login, id string) error { // T
 	return nil
 }
 
-func (s *Service) ApproveTask(ctx context.Context, login, id, approvalLogin string) error { // TODO: отправлять письмо следующему согласующему
+func (s *Service) ApproveTask(ctx context.Context, login, id, approvalLogin string) error {
 	err := s.db.Approve(ctx, login, id, approvalLogin)
 	if err != nil {
 		return err
@@ -63,7 +66,7 @@ func (s *Service) ApproveTask(ctx context.Context, login, id, approvalLogin stri
 	return nil
 }
 
-func (s *Service) DeclineTask(ctx context.Context, login, id, approvalLogin string) error { // TODO: отправлять письма всем участникам об остановке согласования операции в связи с отклонением одним из участников
+func (s *Service) DeclineTask(ctx context.Context, login, id, approvalLogin string) error {
 	err := s.db.Decline(ctx, login, id, approvalLogin)
 	if err != nil {
 		return err
@@ -82,7 +85,7 @@ func (s *Service) Validate(ctx context.Context, tokens ports.TokenPair) (*api.Au
 func (s *Service) StartMessageSender(ctx context.Context) {
 	for {
 		// log.Println("sleeping for 60 seconds")
-		time.Sleep(60 * time.Second)
+		time.Sleep(60 * time.Second) // TODO: уточнить, может есть возможность получения уведомления от postgresql о внесении новых данных в БД
 		// log.Println("looking for messages to send")
 		messages, _ := s.db.GetMessagesToSend(ctx)
 		// log.Println(messages)
@@ -91,10 +94,47 @@ func (s *Service) StartMessageSender(ctx context.Context) {
 			if err != nil {
 				continue
 			}
-			s.db.UpdateMessageStatus(ctx, id)
+			err = s.db.UpdateMessageStatus(ctx, id)
 			if err != nil {
 				continue
 			}
 		}
+	}
+}
+
+func (s *Service) GetResultOfEmailSending(ctx context.Context) {
+	log.Println("Reader Started!!!")
+	resChan := s.emailSender.GetEmailResultChan()
+	// TODO: обработать все значения перед остановкой приложения
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Recieved signal to stop reader!!!")
+			return
+		case result, ok := <-resChan:
+			if ok {
+				log.Printf("Get result of sending - %v", result)
+				for email, res := range result {
+					err := s.db.ChangeEmailStatusAndSendMessage(ctx, email, res)
+					if err != nil {
+						continue
+					}
+				}
+			}
+		}
+	}
+}
+
+func (s *Service) StartEmailSender(ctx context.Context) {
+	s.emailSender.StartEmailWorkers()
+	go s.GetResultOfEmailSending(ctx)
+
+	for {
+		time.Sleep(60 * time.Second) // TODO: уточнить, может есть возможность получения уведомления от postgresql о внесении новых данных в БД
+		emails, _ := s.db.GetEmailsToSend(ctx)
+		for _, email := range emails {
+			s.emailSender.PushEmailToChan(email)
+		}
+		// log.Println(emails)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 
+	"gitlab.com/g6834/team26/task/internal/adapters/email"
 	"gitlab.com/g6834/team26/task/internal/adapters/grpc"
 	"gitlab.com/g6834/team26/task/internal/adapters/http"
 	"gitlab.com/g6834/team26/task/internal/adapters/kafka"
@@ -21,8 +22,9 @@ var (
 	l             *zerolog.Logger
 	db            *postgres.PostgresDatabase
 	grpcAuth      *grpc.GrpcAuth
-	grpcAnalytic  *grpc.GrpcAnalytic
 	kafkaAnalytic *kafka.KafkaClient
+	emailSender   *email.EmailToStdOut
+	// grpcAnalytic  *grpc.GrpcAnalytic
 )
 
 func Start(ctx context.Context) {
@@ -63,7 +65,13 @@ func Start(ctx context.Context) {
 		os.Exit(1)
 	}
 
-	taskS := task.New(db, grpcAuth, kafkaAnalytic)
+	emailSender, err = email.New(ctx, c.Server.EmailWorkers, c.Server.EmailRateLimit)
+	if err != nil {
+		l.Error().Msgf("kafka analytic client init failed: %s", err)
+		os.Exit(1)
+	}
+
+	taskS := task.New(db, grpcAuth, kafkaAnalytic, emailSender)
 
 	s, err = http.New(l, taskS, c)
 	if err != nil {
@@ -73,7 +81,7 @@ func Start(ctx context.Context) {
 
 	var g errgroup.Group
 	g.Go(func() error {
-		return s.Start()
+		return s.Start(ctx)
 	})
 
 	l.Info().Msg("app is started")
@@ -84,10 +92,11 @@ func Start(ctx context.Context) {
 	}
 }
 
-func Stop() {
-	ctx := context.Background()
+func Stop(ctx context.Context) {
+	// ctx := context.Background()
 
 	_ = s.Stop(ctx)
+	_ = emailSender.Stop()
 	_ = db.Stop(ctx)
 	_ = grpcAuth.Stop(ctx)
 	// _ = grpcAnalytic.StopAnalytic(ctx)
