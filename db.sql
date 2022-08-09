@@ -39,7 +39,24 @@ CREATE TABLE IF NOT EXISTS outbox
     CONSTRAINT task_uuid FOREIGN KEY (task_uuid)
         REFERENCES public.tasks (uuid) MATCH SIMPLE
         ON UPDATE NO ACTION
-        ON DELETE NO ACTION
+        ON DELETE CASCADE
+        NOT VALID
+);
+
+-- Table: public.outbox_email
+-- DROP TABLE public.outbox_email;
+CREATE TABLE IF NOT EXISTS outbox_email
+(
+    id SERIAL PRIMARY KEY,
+    task_uuid uuid NOT NULL,
+    reciever character(50) NOT NULL,
+    type character(10) NOT NULL,
+    sent boolean,
+    CONSTRAINT task_uuid FOREIGN KEY (task_uuid)
+        REFERENCES public.tasks (uuid) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE CASCADE
+        NOT VALID
 );
 
 INSERT INTO tasks (uuid, name, text, login) VALUES
@@ -57,3 +74,11 @@ INSERT INTO outbox (task_uuid, action_timestamp, type, value) VALUES
 ('437bcb56-0249-479a-b67b-7c4a56a956d8', 1658691269, 'approve', 'true'),
 ('2281a27e-0ab2-4589-8b06-c4fd5dc6cd45', 1658691369, 'run', 'test123'),
 ('2281a27e-0ab2-4589-8b06-c4fd5dc6cd45', 1658691469, 'approve', 'false');
+
+INSERT INTO outbox_email (task_uuid, reciever, type) VALUES
+('437bcb56-0249-479a-b67b-7c4a56a956d8', 'ivan', 'approve'),
+('437bcb56-0249-479a-b67b-7c4a56a956d8', 'petr', 'approve'),
+('437bcb56-0249-479a-b67b-7c4a56a956d8', 'test123', 'completed'),
+('437bcb56-0249-479a-b67b-7c4a56a956d8', 'ivan', 'completed'),
+('437bcb56-0249-479a-b67b-7c4a56a956d8', 'petr', 'completed'),
+('2281a27e-0ab2-4589-8b06-c4fd5dc6cd45', 'test626', 'approve');

@@ -19,6 +19,7 @@ import (
 	"gitlab.com/g6834/team26/task/internal/adapters/grpc"
 	h "gitlab.com/g6834/team26/task/internal/adapters/http"
 	"gitlab.com/g6834/team26/task/internal/adapters/postgres"
+	"gitlab.com/g6834/team26/task/internal/domain/models"
 	"gitlab.com/g6834/team26/task/internal/domain/task"
 	"gitlab.com/g6834/team26/task/pkg/config"
 	"gitlab.com/g6834/team26/task/pkg/logger"
@@ -32,6 +33,7 @@ type TestcontainersSuite struct {
 	pgContainer    testcontainers.Container
 	authContainer  testcontainers.Container
 	analyticSender *mocks.AnalyticMessageSenderMock
+	emailSender    *mocks.EmailSenderMock
 	authPort       uint16
 }
 
@@ -130,8 +132,9 @@ func (s *TestcontainersSuite) SetupSuite() {
 	}
 
 	analyticSender := new(mocks.AnalyticMessageSenderMock)
+	emailSender := new(mocks.EmailSenderMock)
 
-	taskS := task.New(db, grpcAuth, analyticSender)
+	taskS := task.New(db, grpcAuth, analyticSender, emailSender)
 
 	srv, err := h.New(l, taskS, c)
 	if err != nil {
@@ -143,9 +146,13 @@ func (s *TestcontainersSuite) SetupSuite() {
 	s.pgContainer = dbContainer
 	s.authContainer = authContainer
 	s.analyticSender = analyticSender
+	s.emailSender = emailSender
 	s.authPort = uint16(authPort.Int())
 
-	go s.srv.Start()
+	go s.srv.Start(ctx)
+
+	s.emailSender.On("StartEmailWorkers", mock.Anything).Return()
+	s.emailSender.On("GetEmailResultChan").Return(make(chan map[models.Email]bool))
 
 	s.T().Log("Suite setup is done")
 }

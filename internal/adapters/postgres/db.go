@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -105,7 +106,13 @@ func (pdb *PostgresDatabase) Run(ctx context.Context, t *models.Task) error {
 		}
 	}
 
-	err = pdb.saveMessage(tx, t.UUID, "run", t.InitiatorLogin, time.Now().Unix())
+	err = pdb.SaveMessage(tx, t.UUID, "run", t.InitiatorLogin, time.Now().Unix())
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	err = pdb.saveEmailMessage(tx, t.UUID, t.Approvals[0].ApprovalLogin, "approve")
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -166,8 +173,8 @@ func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error
 		return err
 	}
 
-	query := `DELETE FROM "tasks" WHERE "uuid" = $1 AND "login" = $2` // TODO: возможно стоит не удалять задачу, а менять статус
-	result, err := tx.Exec(query, id, login)
+	query := `UPDATE "tasks" SET "status" = $1 WHERE "uuid" = $2 AND "login" = $3`
+	result, err := tx.Exec(query, "deleted", id, login)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -181,7 +188,14 @@ func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error
 		return e.ErrNotFound
 	}
 
-	err = pdb.saveMessage(tx, id, "delete", "true", time.Now().Unix())
+	err = pdb.SaveMessage(tx, id, "delete", "true", time.Now().Unix())
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// отправляем всем письма в связи с удалением задачи
+	err = pdb.sendInfoEmails(ctx, tx, id, pdb.getTaskInitiator(id), "deleted")
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -233,7 +247,7 @@ func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLog
 	// log.Println("currPosition -", currPosition)
 	// log.Println("maxPosition -", maxPosition)
 
-	err = pdb.saveMessage(tx, id, "approve", "true", time.Now().Unix())
+	err = pdb.SaveMessage(tx, id, "approve", "true", time.Now().Unix())
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -245,7 +259,20 @@ func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLog
 			tx.Rollback()
 			return err
 		}
-		err = pdb.saveMessage(tx, id, "complete", "true", time.Now().Unix())
+		err = pdb.SaveMessage(tx, id, "complete", "true", time.Now().Unix())
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+		// если последний отправляем всем письма о завершении задачи
+		err = pdb.sendInfoEmails(ctx, tx, id, pdb.getTaskInitiator(id), "completed")
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	} else {
+		// если не последний, отправляем письмо следующему
+		err = pdb.saveEmailMessage(tx, id, pdb.getNextApproval(id, currPosition+1), "approve")
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -298,7 +325,14 @@ func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLog
 		return err
 	}
 
-	err = pdb.saveMessage(tx, id, "approve", "false", time.Now().Unix())
+	err = pdb.SaveMessage(tx, id, "approve", "false", time.Now().Unix())
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// отправляем письма всем участникам в связи с отклонением задачи одним из участников
+	err = pdb.sendInfoEmails(ctx, tx, id, pdb.getTaskInitiator(id), "declined")
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -360,7 +394,7 @@ func (pdb *PostgresDatabase) getMaxApprovalPosition(id string) int {
 	return maxApprovalPosition
 }
 
-func (pdb *PostgresDatabase) saveMessage(tx *sql.Tx, id, t, v string, aT int64) error {
+func (pdb *PostgresDatabase) SaveMessage(tx *sql.Tx, id, t, v string, aT int64) error {
 	query := `INSERT INTO "outbox" ("task_uuid", "action_timestamp", "type", "value") VALUES ($1, $2, $3, $4)`
 	_, err := tx.Exec(query, id, aT, t, v)
 	if err != nil {
@@ -401,4 +435,134 @@ func (pdb *PostgresDatabase) UpdateMessageStatus(ctx context.Context, id int) er
 		return err
 	}
 	return nil
+}
+
+func (pdb *PostgresDatabase) saveEmailMessage(tx *sql.Tx, id, reciever, t string) error {
+	query := `INSERT INTO "outbox_email" ("task_uuid", "reciever", "type") VALUES ($1, $2, $3)`
+	_, err := tx.Exec(query, id, reciever, t)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (pdb *PostgresDatabase) GetEmailsToSend(ctx context.Context) ([]models.Email, error) {
+	emails := make([]models.Email, 0)
+
+	getEmailsQuery := `SELECT "id", "task_uuid", "reciever", "type" FROM "outbox_email" WHERE "sent" IS NULL`
+	emailsRows, err := pdb.psqlClient.Query(getEmailsQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer emailsRows.Close()
+
+	for emailsRows.Next() {
+		var email models.Email
+		err := emailsRows.Scan(&email.Id, &email.TaskUUID, &email.Reciever, &email.Type)
+		if err != nil {
+			return nil, err
+		}
+		email.Reciever = strings.TrimSpace(email.Reciever)
+		email.Type = strings.TrimSpace(email.Type)
+		emails = append(emails, email)
+	}
+
+	return emails, nil
+}
+
+func (pdb *PostgresDatabase) UpdateEmailSendStatus(ctx context.Context, id int) error {
+	query := `UPDATE "outbox_email" SET "sent" = $1 WHERE "id" = $2`
+	_, err := pdb.psqlClient.Exec(query, true, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (pdb *PostgresDatabase) ChangeEmailStatusAndSendMessage(ctx context.Context, e models.Email, result bool) error {
+	tx, err := pdb.psqlClient.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	err = pdb.UpdateEmailSendStatus(ctx, e.Id)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	err = pdb.SaveMessage(tx, e.TaskUUID, "send", strconv.FormatBool(result), time.Now().Unix())
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (pdb *PostgresDatabase) getApprovals(ctx context.Context, id string) ([]string, error) {
+	approvals := make([]string, 0)
+
+	getApprovalsQuery := `SELECT "approval_login" FROM "approvals" WHERE "task_uuid" = $1`
+	approvalsRows, err := pdb.psqlClient.Query(getApprovalsQuery, id)
+	if err != nil {
+		return nil, err
+	}
+	defer approvalsRows.Close()
+
+	for approvalsRows.Next() {
+		var approval string
+		err := approvalsRows.Scan(&approval)
+		if err != nil {
+			return nil, err
+		}
+		approval = strings.TrimSpace(approval)
+		approvals = append(approvals, approval)
+	}
+
+	return approvals, nil
+}
+
+func (pdb *PostgresDatabase) sendInfoEmails(ctx context.Context, tx *sql.Tx, id, login, t string) error {
+	err := pdb.saveEmailMessage(tx, id, login, t)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	approvals, err := pdb.getApprovals(ctx, id)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	for _, approval := range approvals {
+		err = pdb.saveEmailMessage(tx, id, approval, t)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return nil
+}
+
+func (pdb *PostgresDatabase) getNextApproval(id string, n int) string {
+	var nextApproval string
+	nextApprovalQuery := `SELECT "approval_login" FROM "approvals" WHERE "task_uuid" = $1 AND "n" = $2`
+	nextApprovalRow := pdb.psqlClient.QueryRow(nextApprovalQuery, id, n)
+	nextApprovalRow.Scan(&nextApproval)
+	return nextApproval
+}
+
+func (pdb *PostgresDatabase) getTaskInitiator(id string) string {
+	var taskInitiator string
+	taskInitiatorQuery := `SELECT "login" FROM "tasks" WHERE "uuid" = $1`
+	taskInitiatorRow := pdb.psqlClient.QueryRow(taskInitiatorQuery, id)
+	taskInitiatorRow.Scan(&taskInitiator)
+	return taskInitiator
 }

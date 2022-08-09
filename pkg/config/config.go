@@ -17,6 +17,8 @@ type serverConfig struct {
 	JsonDbFile         string `envconfig:"JSON_DB_FILE" default:"db.jsonl"`
 	KafkaUrl           string `envconfig:"KAFKA_URL" default:"91.185.95.87:9094"`
 	KafkaAnalyticTopic string `envconfig:"KAFKA_ANALYTIC_TOPIC" default:"team26-analytic"`
+	EmailWorkers       int    `envconfig:"EMAIL_WORKERS" default:"5"`
+	EmailRateLimit     int    `envconfig:"EMAIL_RATE_LIMIT" default:"3"`
 }
 
 func New() (*Config, error) {

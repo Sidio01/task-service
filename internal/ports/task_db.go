@@ -14,5 +14,7 @@ type TaskDB interface {
 	Approve(ctx context.Context, login, id, approvalLogin string) error
 	Decline(ctx context.Context, login, id, approvalLogin string) error
 	GetMessagesToSend(ctx context.Context) (map[int]models.KafkaAnalyticMessage, error)
+	GetEmailsToSend(ctx context.Context) ([]models.Email, error)
 	UpdateMessageStatus(ctx context.Context, id int) error
+	ChangeEmailStatusAndSendMessage(ctx context.Context, e models.Email, result bool) error
 }
