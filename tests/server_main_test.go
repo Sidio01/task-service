@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"gitlab.com/g6834/team26/task/internal/adapters/grpc"
 	h "gitlab.com/g6834/team26/task/internal/adapters/http"
 	"gitlab.com/g6834/team26/task/internal/adapters/postgres"
 	"gitlab.com/g6834/team26/task/internal/domain/models"
@@ -29,12 +28,13 @@ import (
 type TestcontainersSuite struct {
 	suite.Suite
 
-	srv            *h.Server
-	pgContainer    testcontainers.Container
-	authContainer  testcontainers.Container
+	srv         *h.Server
+	pgContainer testcontainers.Container
+	// authContainer  testcontainers.Container
+	// authPort       uint16
+	authMock       *mocks.GrpcAuthMock
 	analyticSender *mocks.AnalyticMessageSenderMock
 	emailSender    *mocks.EmailSenderMock
-	authPort       uint16
 }
 
 const (
@@ -96,41 +96,42 @@ func (s *TestcontainersSuite) SetupSuite() {
 		s.Suite.T().FailNow()
 	}
 
-	contextAuthPath, _ := filepath.Abs("../../auth") // предварительно необходимо склонировать репозиторий auth
-	authContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: testcontainers.ContainerRequest{
-			FromDockerfile: testcontainers.FromDockerfile{
-				Context: contextAuthPath,
-			},
-			ExposedPorts: []string{"2000", "4000"},
-			Env: map[string]string{
-				"PORT":      "2000",
-				"GRPC_PORT": "4000",
-			},
-			WaitingFor: wait.ForLog("app is started"),
-			SkipReaper: true,
-			AutoRemove: true,
-		},
-		Started: true,
-	})
-	s.Require().NoError(err)
+	// contextAuthPath, _ := filepath.Abs("../../auth") // предварительно необходимо склонировать репозиторий auth
+	// authContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+	// 	ContainerRequest: testcontainers.ContainerRequest{
+	// 		FromDockerfile: testcontainers.FromDockerfile{
+	// 			Context: contextAuthPath,
+	// 		},
+	// 		ExposedPorts: []string{"2000", "4000"},
+	// 		Env: map[string]string{
+	// 			"PORT":      "2000",
+	// 			"GRPC_PORT": "4000",
+	// 		},
+	// 		WaitingFor: wait.ForLog("app is started"),
+	// 		SkipReaper: true,
+	// 		AutoRemove: true,
+	// 	},
+	// 	Started: true,
+	// })
+	// s.Require().NoError(err)
 
-	time.Sleep(5 * time.Second)
+	// time.Sleep(5 * time.Second)
 
-	authPort, err := authContainer.MappedPort(ctx, "2000")
-	s.Require().NoError(err)
-	authGrpcPort, err := authContainer.MappedPort(ctx, "4000")
-	s.Require().NoError(err)
-	authIp, err := authContainer.Host(ctx)
-	s.Require().NoError(err)
+	// authPort, err := authContainer.MappedPort(ctx, "2000")
+	// s.Require().NoError(err)
+	// authGrpcPort, err := authContainer.MappedPort(ctx, "4000")
+	// s.Require().NoError(err)
+	// authIp, err := authContainer.Host(ctx)
+	// s.Require().NoError(err)
 
-	grpcConn := fmt.Sprintf("%s:%d", authIp, uint16(authGrpcPort.Int()))
-	grpcAuth, err := grpc.New(grpcConn)
-	if err != nil {
-		s.Suite.T().Errorf("grpc auth client init failed: %s", err)
-		s.Suite.T().FailNow()
-	}
+	// grpcConn := fmt.Sprintf("%s:%d", authIp, uint16(authGrpcPort.Int()))
+	// grpcAuth, err := grpc.New(grpcConn)
+	// if err != nil {
+	// 	s.Suite.T().Errorf("grpc auth client init failed: %s", err)
+	// 	s.Suite.T().FailNow()
+	// }
 
+	grpcAuth := new(mocks.GrpcAuthMock)
 	analyticSender := new(mocks.AnalyticMessageSenderMock)
 	emailSender := new(mocks.EmailSenderMock)
 
@@ -144,10 +145,11 @@ func (s *TestcontainersSuite) SetupSuite() {
 
 	s.srv = srv
 	s.pgContainer = dbContainer
-	s.authContainer = authContainer
+	s.authMock = grpcAuth
 	s.analyticSender = analyticSender
 	s.emailSender = emailSender
-	s.authPort = uint16(authPort.Int())
+	// s.authContainer = authContainer
+	// s.authPort = uint16(authPort.Int())
 
 	go s.srv.Start(ctx)
 
@@ -160,7 +162,7 @@ func (s *TestcontainersSuite) SetupSuite() {
 func (s *TestcontainersSuite) TearDownSuite() {
 	_ = s.srv.Stop(context.Background())
 	s.pgContainer.Terminate(context.Background())
-	s.authContainer.Terminate(context.Background())
+	// s.authContainer.Terminate(context.Background())
 	s.T().Log("Suite stop is done")
 }
 
@@ -183,7 +185,7 @@ func (s *TestcontainersSuite) TestDBSelect() {
 	responseTask, err := client.Do(reqTask)
 
 	s.NoError(err)
-	// s.Equal(http.StatusOK, responseTask.StatusCode)
-	s.Equal(http.StatusForbidden, responseTask.StatusCode)
+	s.Equal(http.StatusOK, responseTask.StatusCode)
+	// s.Equal(http.StatusForbidden, responseTask.StatusCode)
 	responseTask.Body.Close()
 }
