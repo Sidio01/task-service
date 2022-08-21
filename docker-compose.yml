@@ -4,22 +4,46 @@ services:
   app:
     build:
       dockerfile: Dockerfile
-    # image: task:v1
     ports:
       - 3000:3000
-    # volumes:
-    #   - ./app:/app
+    env_file:
+      - .env
     links:
       - db
+      - kafka
     depends_on:
-      - db
+      kafka:
+        condition: service_healthy
+      db:
+        condition: service_started
   db:
     image: postgres:14
     environment:
-      - POSTGRES_DB=mtsteta
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=1111
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
       - 5432:5432
     volumes:
       - ./db.sql:/docker-entrypoint-initdb.d/db.sql
+  zookeeper:
+    image: wurstmeister/zookeeper:latest
+    ports:
+      - "2181:2181"
+  kafka:
+    image: wurstmeister/kafka:2.13-2.8.1
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_CREATE_TOPICS: "team26-analytic:1:1"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--list", "--zookeeper", "zookeeper:2181"]
+      interval: 5s
+      timeout: 10s
+      retries: 5

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -38,32 +37,32 @@ func (s *Server) taskHandlers() http.Handler {
 	r := chi.NewRouter()
 
 	r.Group(func(r chi.Router) {
-		r.Use(s.ValidateTokens())
+		// r.Use(s.ValidateTokens())
 		r.Post("/tasks/run", s.RunTaskHandler)
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(s.ValidateTokens())
+		// r.Use(s.ValidateTokens())
 		r.Get("/tasks/", s.GetTasksListHandler)
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(s.ValidateTokens())
+		// r.Use(s.ValidateTokens())
 		r.Put("/tasks/{taskID}", s.UpdateTaskHandler)
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(s.ValidateTokens())
+		// r.Use(s.ValidateTokens())
 		r.Delete("/tasks/{taskID}", s.DeleteTaskHandler)
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(s.ValidateTokens())
+		// r.Use(s.ValidateTokens())
 		r.Post("/tasks/{taskID}/approve/{approvalLogin}", s.ApproveTaskHandler)
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(s.ValidateTokens())
+		// r.Use(s.ValidateTokens())
 		r.Post("/tasks/{taskID}/decline/{approvalLogin}", s.DeclineTaskHandler)
 	})
 	return r
@@ -85,7 +84,6 @@ func (s *Server) taskHandlers() http.Handler {
 func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	ctx := r.Context()
-	login := ctx.Value("login").(string)
 
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -102,6 +100,9 @@ func (s *Server) RunTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, e.ErrInvalidJsonBody.Error(), http.StatusBadRequest)
 		return
 	}
+
+	// login := ctx.Value("login").(string)
+	login := runnedTask.InitiatorLogin
 
 	createdTask, err := runnedTask.CreateTask(login)
 	if err != nil {
@@ -136,7 +137,8 @@ func (s *Server) GetTasksListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	ctx := r.Context()
 
-	login := ctx.Value("login").(string)
+	// login := ctx.Value("login").(string)
+	login := ""
 
 	t, err := s.task.ListTasks(ctx, login)
 	if err != nil {
@@ -165,7 +167,8 @@ func (s *Server) GetTasksListHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	ctx := r.Context()
-	login := ctx.Value("login").(string)
+	// login := ctx.Value("login").(string)
+	login := ""
 
 	id := chi.URLParam(r, "taskID")
 
@@ -196,7 +199,6 @@ func (s *Server) UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println(login, id)
 	json.NewEncoder(w).Encode(StatusApproved{Status: "updated"})
 }
 
@@ -218,7 +220,8 @@ func (s *Server) UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) ApproveTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	ctx := r.Context()
-	login := ctx.Value("login").(string)
+	// login := ctx.Value("login").(string)
+	login := ""
 
 	id := chi.URLParam(r, "taskID")
 	approvalLogin := chi.URLParam(r, "approvalLogin")
@@ -255,7 +258,8 @@ func (s *Server) ApproveTaskHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) DeclineTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	ctx := r.Context()
-	login := ctx.Value("login").(string)
+	// login := ctx.Value("login").(string)
+	login := ""
 
 	id := chi.URLParam(r, "taskID")
 	approvalLogin := chi.URLParam(r, "approvalLogin")
@@ -290,7 +294,8 @@ func (s *Server) DeclineTaskHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	ctx := r.Context()
-	login := ctx.Value("login").(string)
+	// login := ctx.Value("login").(string)
+	login := ""
 
 	id := chi.URLParam(r, "taskID")
 	err := s.task.DeleteTask(ctx, login, id)

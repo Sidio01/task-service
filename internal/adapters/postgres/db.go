@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -37,15 +36,12 @@ func (pdb *PostgresDatabase) Stop(ctx context.Context) error {
 }
 
 func (pdb *PostgresDatabase) List(ctx context.Context, login string) ([]*models.Task, error) {
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
 	var result []*models.Task
 
-	taskQuery := `SELECT "uuid", "name", "text", "login", "status" FROM "tasks" WHERE "login" = $1`
-	taskRows, err := pdb.psqlClient.Query(taskQuery, login)
+	taskQuery := `SELECT "uuid", "name", "text", "login", "status" FROM "tasks"` // WHERE "login" = $1`
+	taskRows, err := pdb.psqlClient.Query(taskQuery)                             //, login)
 	if err != nil {
 		return nil, err
-		// return nil, fmt.Errorf("no user with such login")
 	}
 	defer taskRows.Close()
 
@@ -83,8 +79,6 @@ func (pdb *PostgresDatabase) List(ctx context.Context, login string) ([]*models.
 }
 
 func (pdb *PostgresDatabase) Run(ctx context.Context, t *models.Task) error {
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
 	tx, err := pdb.psqlClient.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -126,8 +120,6 @@ func (pdb *PostgresDatabase) Run(ctx context.Context, t *models.Task) error {
 }
 
 func (pdb *PostgresDatabase) Update(ctx context.Context, id, login, name, text string) error {
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
 	var (
 		query  string
 		err    error
@@ -136,20 +128,16 @@ func (pdb *PostgresDatabase) Update(ctx context.Context, id, login, name, text s
 
 	switch {
 	case text == "" && name == "":
-		log.Println("text == \"\" && name == \"\"")
 		return e.ErrNothingToChange
 	case text == "":
-		log.Println("text == \"\"")
-		query = `UPDATE "tasks" SET "name" = $1 WHERE "uuid" = $2 AND "login" = $3`
-		result, err = pdb.psqlClient.Exec(query, name, id, login)
+		query = `UPDATE "tasks" SET "name" = $1 WHERE "uuid" = $2` // AND "login" = $3`
+		result, err = pdb.psqlClient.Exec(query, name, id)         //, login)
 	case name == "":
-		log.Println("name == \"\"")
-		query = `UPDATE "tasks" SET "text" = $1 WHERE "uuid" = $2 AND "login" = $3`
-		result, err = pdb.psqlClient.Exec(query, text, id, login)
+		query = `UPDATE "tasks" SET "text" = $1 WHERE "uuid" = $2` // AND "login" = $3`
+		result, err = pdb.psqlClient.Exec(query, text, id)         //, login)
 	default:
-		log.Println("default")
-		query = `UPDATE "tasks" SET "name" = $1, "text" = $2 WHERE "uuid" = $3 AND "login" = $4`
-		result, err = pdb.psqlClient.Exec(query, name, text, id, login)
+		query = `UPDATE "tasks" SET "name" = $1, "text" = $2 WHERE "uuid" = $3` // AND "login" = $4`
+		result, err = pdb.psqlClient.Exec(query, name, text, id)                //, login)
 	}
 	if err != nil {
 		return err
@@ -166,15 +154,13 @@ func (pdb *PostgresDatabase) Update(ctx context.Context, id, login, name, text s
 }
 
 func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error {
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
 	tx, err := pdb.psqlClient.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	query := `UPDATE "tasks" SET "status" = $1 WHERE "uuid" = $2 AND "login" = $3`
-	result, err := tx.Exec(query, "deleted", id, login)
+	query := `UPDATE "tasks" SET "status" = $1 WHERE "uuid" = $2` // AND "login" = $3`
+	result, err := tx.Exec(query, "deleted", id)                  //, login)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -209,8 +195,6 @@ func (pdb *PostgresDatabase) Delete(ctx context.Context, login, id string) error
 }
 
 func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLogin string) error {
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
 	tx, err := pdb.psqlClient.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -287,8 +271,6 @@ func (pdb *PostgresDatabase) Approve(ctx context.Context, login, id, approvalLog
 }
 
 func (pdb *PostgresDatabase) Decline(ctx context.Context, login, id, approvalLogin string) error {
-	// _, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
 	tx, err := pdb.psqlClient.BeginTx(ctx, nil)
 	if err != nil {
 		return err
