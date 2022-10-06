@@ -1,6 +1,6 @@
 ## Service for tasks of approval and sending letters
 
-* implements a REST API for creating a task for approval and sending unique solution links to participants.
+* Implements a REST API for creating a task for approval and sending unique solution links to participants.
 * The list of participants is indicated explicitly (list of email) for each task.
 * Authentication of calls to the REST API is validated on the authentication service through GRPC calls.
 * The REST API must implement CRUDL for negotiation tasks. Operations U and D are allowed only to the author of the problem.
